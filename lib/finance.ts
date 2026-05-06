@@ -49,12 +49,12 @@ export type CategorizationRule = {
 };
 
 export const categories: Category[] = [
-  { id: 'food', label: '식비', tone: '#16A34A', keywords: ['starbucks', '스타벅스', 'cafe', 'coffee', 'restaurant', 'mcdonald', 'burger', '식당', '카페', '마트', 'grocery', 'tesco', 'whole foods'] },
+  { id: 'food', label: '식비', tone: '#16A34A', keywords: ['starbucks', '스타벅스', 'cafe', 'coffee', 'restaurant', 'mcdonald', 'burger', '식당', '카페', '마트', 'grocery', 'tesco', 'whole foods', 'gs25', '편의점', 'convenience'] },
   { id: 'transport', label: '교통', tone: '#2563EB', keywords: ['uber', 'lyft', 'metro', 'train', 'bus', 'transport', 'tube', '교통', '택시', '지하철'] },
   { id: 'housing', label: '주거', tone: '#7C3AED', keywords: ['rent', '월세', 'housing', 'dorm', '기숙사', 'airbnb', 'utility', 'electric'] },
-  { id: 'study', label: '학업', tone: '#0891B2', keywords: ['university', 'campus', 'book', 'library', 'tuition', 'school', '학교', '서점', '교재'] },
+  { id: 'health', label: '의료', tone: '#DC2626', keywords: ['pharmacy', 'clinic', 'hospital', 'drug', '약국', '병원', '의료', 'medical', 'healthcare'] },
+  { id: 'study', label: '학업', tone: '#0891B2', keywords: ['university', 'campus', 'book', 'library', 'tuition', 'school', '학교', '서점', '교재', 'bookstore'] },
   { id: 'shopping', label: '쇼핑', tone: '#DB2777', keywords: ['amazon', 'zara', 'uniqlo', 'target', 'shopping', 'store', '쇼핑', '쿠팡'] },
-  { id: 'health', label: '의료', tone: '#DC2626', keywords: ['pharmacy', 'clinic', 'hospital', 'drug', '약국', '병원', '의료'] },
   { id: 'transfer', label: '송금', tone: '#F59E0B', keywords: ['transfer', 'remit', 'wire', '송금', 'exchange', '환전', 'xrpl'] },
   { id: 'other', label: '기타', tone: '#64748B', keywords: [] },
 ];
@@ -117,7 +117,25 @@ export function categorizeMerchant(text: string, customRules?: CategorizationRul
 
 export function parsePaymentNotification(rawText: string, customRules?: CategorizationRule[]): Omit<Transaction, 'id' | 'date' | 'source' | 'hash'> {
   const text = rawText.replace(/\s+/g, ' ').trim();
-  const amountMatch = text.match(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/i);
+  
+  // 먼저 날짜 패턴(YYYY.MM.DD)을 제거하여 금액 추출 방해 방지
+  // MM.DD 패턴은 소수점 숫자를 단단히 제거할 수 있으로 제외
+  const textWithoutDates = text.replace(/\d{4}\.\d{2}\.\d{2}/g, '');
+  
+  // 금액 추출: 쉼표를 포함한 숫자 패턴 우선 (예: 5,500)
+  // 통화 기호 또는 코드 다음의 숫자 찾기
+  let amountMatch = textWithoutDates.match(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/i);
+  
+  // 쉼표가 없는 숫자 패턴 시도 (4자리 이상)
+  if (!amountMatch) {
+    amountMatch = textWithoutDates.match(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)\s*([0-9]{4,}(?:\.[0-9]{1,2})?)\s*(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/i);
+  }
+  
+  // 더 유연한 패턴 시도 (3자리 이상)
+  if (!amountMatch) {
+    amountMatch = textWithoutDates.match(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)?\s*([0-9]{3,}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/i);
+  }
+  
   const currencySymbol = text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : text.includes('$') ? 'USD' : undefined;
   const currency = normalizeCurrency(amountMatch?.[2] ?? currencySymbol ?? inferCurrency(text));
   const amount = Number((amountMatch?.[1] ?? '0').replace(/,/g, ''));
@@ -232,8 +250,10 @@ function inferCurrency(text: string) {
 function extractMerchant(text: string) {
   const cleaned = text
     .replace(/\[[^\]]+\]/g, '')
+    .replace(/\d{4}\.\d{2}\.\d{2}|\d{1,2}:\d{2}/g, '')
     .replace(/승인|결제|paid|payment|card|카드|체크|신용|사용|알림/gi, '')
     .replace(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)?\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/gi, '')
+    .replace(/[^a-zA-Z0-9가-힣\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   const words = cleaned.split(' ').filter(Boolean);

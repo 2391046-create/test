@@ -98,7 +98,7 @@ export function getBudgetStatus(
     budgetAmount: budget.budgetAmount,
     spentAmount,
     remainingAmount: Math.max(remainingAmount, 0),
-    percentageUsed: Math.min(percentageUsed, 100),
+    percentageUsed: Math.round(percentageUsed * 10) / 10,
     status,
   };
 }
