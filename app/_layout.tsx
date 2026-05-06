@@ -10,6 +10,7 @@ import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { FinanceProvider } from "@/lib/finance-context";
 import { RulesProvider } from "@/lib/rules-context";
+import { BudgetProvider } from "@/lib/budget-context";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -89,10 +90,12 @@ export default function RootLayout() {
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <RulesProvider>
             <FinanceProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="oauth/callback" />
-              </Stack>
+              <BudgetProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="oauth/callback" />
+                </Stack>
+              </BudgetProvider>
             </FinanceProvider>
           </RulesProvider>
           <StatusBar style="auto" />
