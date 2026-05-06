@@ -37,6 +37,17 @@ export type ExchangeRecommendation = {
   expectedSavingKrw: number;
 };
 
+export type CategorizationRule = {
+  id: string;
+  name: string;
+  category: CategoryId;
+  matchType: 'keyword' | 'regex';
+  pattern: string;
+  enabled: boolean;
+  priority: number;
+  createdAt: string;
+};
+
 export const categories: Category[] = [
   { id: 'food', label: '식비', tone: '#16A34A', keywords: ['starbucks', '스타벅스', 'cafe', 'coffee', 'restaurant', 'mcdonald', 'burger', '식당', '카페', '마트', 'grocery', 'tesco', 'whole foods'] },
   { id: 'transport', label: '교통', tone: '#2563EB', keywords: ['uber', 'lyft', 'metro', 'train', 'bus', 'transport', 'tube', '교통', '택시', '지하철'] },
@@ -65,12 +76,35 @@ export const exchangeSeries: ExchangePoint[] = [
   { date: '05/06', rate: 1354.7 },
 ];
 
+export const defaultRules: CategorizationRule[] = [
+  { id: 'rule-1', name: 'Starbucks 체인', category: 'food', matchType: 'keyword', pattern: 'starbucks', enabled: true, priority: 10, createdAt: '2026-05-06' },
+  { id: 'rule-2', name: '우버/라이프트', category: 'transport', matchType: 'keyword', pattern: 'uber|lyft', enabled: true, priority: 9, createdAt: '2026-05-06' },
+  { id: 'rule-3', name: '월세 결제', category: 'housing', matchType: 'keyword', pattern: 'rent|월세', enabled: true, priority: 8, createdAt: '2026-05-06' },
+];
+
 export function getCategory(id: CategoryId) {
   return categories.find((category) => category.id === id) ?? categories[categories.length - 1];
 }
 
-export function categorizeMerchant(text: string): { category: CategoryId; confidence: number; matchedKeyword?: string } {
+export function categorizeMerchant(text: string, customRules?: CategorizationRule[]): { category: CategoryId; confidence: number; matchedKeyword?: string; ruleId?: string } {
   const normalized = text.toLowerCase();
+
+  // 사용자 정의 규칙 우선 확인 (우선순위 높은 순서)
+  if (customRules && customRules.length > 0) {
+    const sortedRules = [...customRules].filter((r) => r.enabled).sort((a, b) => b.priority - a.priority);
+    for (const rule of sortedRules) {
+      try {
+        const regex = new RegExp(rule.pattern, 'i');
+        if (regex.test(normalized)) {
+          return { category: rule.category, confidence: 0.95, matchedKeyword: rule.pattern, ruleId: rule.id };
+        }
+      } catch {
+        // 정규식 오류 무시
+      }
+    }
+  }
+
+  // 기본 카테고리 키워드 확인
   for (const category of categories) {
     if (category.id === 'other') continue;
     const matchedKeyword = category.keywords.find((keyword) => normalized.includes(keyword.toLowerCase()));
@@ -81,14 +115,14 @@ export function categorizeMerchant(text: string): { category: CategoryId; confid
   return { category: 'other', confidence: 0.48 };
 }
 
-export function parsePaymentNotification(rawText: string): Omit<Transaction, 'id' | 'date' | 'source' | 'hash'> {
+export function parsePaymentNotification(rawText: string, customRules?: CategorizationRule[]): Omit<Transaction, 'id' | 'date' | 'source' | 'hash'> {
   const text = rawText.replace(/\s+/g, ' ').trim();
   const amountMatch = text.match(/(?:KRW|USD|EUR|GBP|JPY|CAD|AUD|₩|\$|€|£)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(KRW|USD|EUR|GBP|JPY|CAD|AUD|원|달러|유로|파운드)?/i);
   const currencySymbol = text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : text.includes('$') ? 'USD' : undefined;
   const currency = normalizeCurrency(amountMatch?.[2] ?? currencySymbol ?? inferCurrency(text));
   const amount = Number((amountMatch?.[1] ?? '0').replace(/,/g, ''));
   const merchant = extractMerchant(text);
-  const { category, confidence } = categorizeMerchant(`${merchant} ${text}`);
+  const { category, confidence } = categorizeMerchant(`${merchant} ${text}`, customRules);
 
   return {
     merchant,
@@ -100,8 +134,8 @@ export function parsePaymentNotification(rawText: string): Omit<Transaction, 'id
   };
 }
 
-export function createTransaction(rawText: string, source: Transaction['source'] = 'notification', date = new Date().toISOString().slice(0, 10)): Transaction {
-  const parsed = parsePaymentNotification(rawText);
+export function createTransaction(rawText: string, source: Transaction['source'] = 'notification', date = new Date().toISOString().slice(0, 10), customRules?: CategorizationRule[]): Transaction {
+  const parsed = parsePaymentNotification(rawText, customRules);
   const seed = `${parsed.merchant}-${parsed.amount}-${parsed.currency}-${date}-${rawText}`;
   return {
     ...parsed,
@@ -109,6 +143,20 @@ export function createTransaction(rawText: string, source: Transaction['source']
     date,
     source,
     hash: `XRPL-${hashSeed(seed).toUpperCase().slice(0, 18)}`,
+  };
+}
+
+export function createRule(name: string, category: CategoryId, pattern: string, matchType: 'keyword' | 'regex' = 'keyword', priority = 5): CategorizationRule {
+  const id = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return {
+    id,
+    name,
+    category,
+    matchType,
+    pattern,
+    enabled: true,
+    priority,
+    createdAt: new Date().toISOString().slice(0, 10),
   };
 }
 

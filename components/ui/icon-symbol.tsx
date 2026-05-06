@@ -11,6 +11,7 @@ const MAPPING = {
   'list.bullet.rectangle.fill': 'receipt-long',
   'chart.pie.fill': 'pie-chart',
   'chart.line.uptrend.xyaxis': 'show-chart',
+  'slider.horizontal.3': 'tune',
   'gearshape.fill': 'settings',
   'paperplane.fill': 'send',
   'chevron.right': 'chevron-right',
