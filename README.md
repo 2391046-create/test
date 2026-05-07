@@ -38,7 +38,8 @@ XRPL_Project2/
 
 ## 서버 실행 순서
 
-서버가 **3개** 있어. 전부 따로 터미널 열어서 실행해야 해.
+도커(DB) + 서버 총 3개 실행 필요.
+전부 따로 터미널 열어서 실행
 
 ---
 
@@ -79,6 +80,8 @@ cp .env.example .env
 
 #### `.env` 파일 수정
 
+** .env 파일은 공유해드리는 파일을 받아 /Backend에 넣어주시면 됩니다 아래설명은 직접 seed,key 발급시 참고 **
+
 ```
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:15432/livingfund
 XRPL_TESTNET_URL=https://s.altnet.rippletest.net:51234
@@ -106,7 +109,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-### 3. tRPC 서버 + Expo 앱
+### 3. tRPC 서버 + Expo 앱 서버 실행
 
 ```bash
 # 프로젝트 루트에서
