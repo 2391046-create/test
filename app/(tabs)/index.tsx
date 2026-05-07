@@ -52,6 +52,18 @@ export default function HomeScreen() {
     router.push('/(tabs)/rules');
   }, []);
 
+  const handleScanReceipt = useCallback(() => {
+    router.push('/(tabs)/receipt-scanner');
+  }, []);
+
+  const handleAnalyzePrice = useCallback(() => {
+    router.push('/(tabs)/menu-scanner');
+  }, []);
+
+  const handleDutchPay = useCallback(() => {
+    router.push('/(tabs)/dutch-pay');
+  }, []);
+
   return (
     <ScreenContainer className="px-5 pt-4">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -89,15 +101,48 @@ export default function HomeScreen() {
 
         {/* 빠른 작업 버튼 */}
         <View className="mb-6 gap-2">
-          <TouchableOpacity onPress={handleAddNotification} className="rounded-2xl bg-primary/10 border border-primary/30 py-4 px-4 flex-row items-center justify-between active:opacity-70">
+          <TouchableOpacity onPress={handleScanReceipt} className="rounded-2xl bg-primary/10 border border-primary/30 py-4 px-4 flex-row items-center justify-between active:opacity-70">
             <View className="flex-row items-center gap-3">
-              <Text className="text-2xl">📝</Text>
+              <Text className="text-2xl">📄</Text>
               <View>
-                <Text className="text-sm font-bold text-primary">거래 추가</Text>
-                <Text className="text-xs text-muted">알림 텍스트 붙여넣기</Text>
+                <Text className="text-sm font-bold text-primary">영수증 스캔</Text>
+                <Text className="text-xs text-muted">다국 영수증 자동 분석</Text>
               </View>
             </View>
             <Text className="text-primary text-lg">→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleAnalyzePrice} className="rounded-2xl bg-primary/10 border border-primary/30 py-4 px-4 flex-row items-center justify-between active:opacity-70">
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">🍽️</Text>
+              <View>
+                <Text className="text-sm font-bold text-primary">가격 분석</Text>
+                <Text className="text-xs text-muted">메뉴판 스캔 및 평균가 비교</Text>
+              </View>
+            </View>
+            <Text className="text-primary text-lg">→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleDutchPay} className="rounded-2xl bg-primary/10 border border-primary/30 py-4 px-4 flex-row items-center justify-between active:opacity-70">
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">👥</Text>
+              <View>
+                <Text className="text-sm font-bold text-primary">더치페이</Text>
+                <Text className="text-xs text-muted">자동 정산 계산</Text>
+              </View>
+            </View>
+            <Text className="text-primary text-lg">→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleAddNotification} className="rounded-2xl bg-surface border border-border py-4 px-4 flex-row items-center justify-between active:opacity-70">
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">📝</Text>
+              <View>
+                <Text className="text-sm font-bold text-foreground">거래 추가</Text>
+                <Text className="text-xs text-muted">알림 텍스트 붙여넣기</Text>
+              </View>
+            </View>
+            <Text className="text-muted text-lg">→</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleViewRules} className="rounded-2xl bg-surface border border-border py-4 px-4 flex-row items-center justify-between active:opacity-70">

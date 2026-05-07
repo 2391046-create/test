@@ -2,13 +2,19 @@ import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } fr
 import { ScreenContainer } from "@/components/screen-container";
 import { useReceiptScanner } from "@/hooks/useReceiptScanner";
 import { useSettings } from "@/hooks/useSettings";
+import { useTransactionStorage } from "@/hooks/useTransactionStorage";
+import { useXRPL } from "@/hooks/useXRPL";
 import { useState } from "react";
 import { ReceiptAnalysisResult } from "@/types";
 
 export default function ReceiptScannerScreen() {
   const { isLoading, error, result, pickImage, takePhoto, analyzeReceipt, clearResult } = useReceiptScanner();
   const { settings } = useSettings();
+  const { saveTransaction, updateTransactionXRPL } = useTransactionStorage();
+  const { recordTransaction, isLoading: isXRPLLoading } = useXRPL();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedTxId, setSavedTxId] = useState<string | null>(null);
 
   const handlePickImage = async () => {
     const imageUri = await pickImage();
@@ -37,6 +43,51 @@ export default function ReceiptScannerScreen() {
   const handleClear = () => {
     clearResult();
     setSelectedImage(null);
+  };
+
+  const handleSave = async () => {
+    if (!result) return;
+    setIsSaving(true);
+    try {
+      const tx = await saveTransaction("receipt", result);
+      setSavedTxId(tx.id);
+      Alert.alert("성공", "영수증이 저장되었습니다");
+    } catch (err) {
+      Alert.alert("오류", "저장 실패");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRecordXRPL = async () => {
+    if (!savedTxId || !settings.xrplWalletSeed || !result) return;
+
+    try {
+      const xrplResult = await recordTransaction(
+        {
+          merchant: result.merchant_name,
+          amount: result.total_krw,
+          currency: result.currency,
+          category: "receipt",
+          description: result.items?.map((i) => i.name).join(", "),
+          timestamp: new Date().toISOString(),
+        },
+        settings.xrplWalletSeed,
+        settings.backendUrl
+      );
+
+      if (xrplResult.success && xrplResult.tx_hash) {
+        await updateTransactionXRPL(savedTxId, xrplResult.tx_hash);
+        Alert.alert(
+          "성공",
+          `XRPL에 기록되었습니다\n\nTx Hash:\n${xrplResult.tx_hash.substring(0, 20)}...`
+        );
+      } else {
+        Alert.alert("오류", xrplResult.error || "XRPL 기록 실패");
+      }
+    } catch (err) {
+      Alert.alert("오류", "XRPL 기록 실패");
+    }
   };
 
   return (
@@ -170,12 +221,37 @@ export default function ReceiptScannerScreen() {
 
             {/* 액션 버튼 */}
             <View className="gap-2">
-              <TouchableOpacity className="p-4 bg-primary rounded-lg">
-                <Text className="text-center font-semibold text-background">💾 저장하기</Text>
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={isSaving}
+                className="p-4 bg-primary rounded-lg"
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-center font-semibold text-background">💾 저장하기</Text>
+                )}
               </TouchableOpacity>
 
+              {savedTxId && settings.xrplWalletSeed && (
+                <TouchableOpacity
+                  onPress={handleRecordXRPL}
+                  disabled={isXRPLLoading}
+                  className="p-4 bg-success rounded-lg"
+                >
+                  {isXRPLLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-center font-semibold text-background">⛓️ XRPL에 기록</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
-                onPress={handleClear}
+                onPress={() => {
+                  handleClear();
+                  setSavedTxId(null);
+                }}
                 className="p-4 bg-surface border border-border rounded-lg"
               >
                 <Text className="text-center font-semibold text-foreground">다시 스캔</Text>
