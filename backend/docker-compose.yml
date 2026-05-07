@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: finance_compass_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: finance_compass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 백엔드
+  backend:
+    build: .
+    container_name: finance_compass_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finance_compass
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      XRPL_NETWORK_URL: https://s.altnet.rippletest.net:51234
+      XRPL_WALLET_SEED: ${XRPL_WALLET_SEED}
+      XRPL_ACCOUNT_ADDRESS: ${XRPL_ACCOUNT_ADDRESS}
+      DEBUG: "False"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: finance_compass_network
