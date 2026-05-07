@@ -1,230 +1,280 @@
-"""
-Gemini AI 연동 모듈
-결제 텍스트 및 영수증 이미지 분석
-"""
-import json
-import base64
-import logging
-from typing import Optional, Dict, Any
-from datetime import datetime
 import google.generativeai as genai
-from config import settings
-from schemas import ClassifyResponse
+import base64
+import json
+import re
+from typing import Optional, Dict, Any, List
+import os
 
-logger = logging.getLogger(__name__)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Gemini AI 초기화
-genai.configure(api_key=settings.GEMINI_API_KEY)
+EXCHANGE_RATES = {
+    "USD": 1300,
+    "JPY": 9.5,
+    "GBP": 1650,
+    "EUR": 1400,
+    "CNY": 180,
+    "THB": 37,
+    "SGD": 970,
+    "AUD": 850,
+    "CAD": 950,
+    "HKD": 166,
+}
 
+AVERAGE_PRICES = {
+    "USD": {
+        "coffee": 5.50,
+        "burger": 12.00,
+        "pizza": 15.00,
+        "sushi": 18.00,
+        "salad": 10.00,
+        "pasta": 14.00,
+        "steak": 25.00,
+        "sandwich": 8.00,
+        "ramen": 10.00,
+        "chicken": 12.00,
+    },
+    "JPY": {
+        "coffee": 500,
+        "burger": 1200,
+        "pizza": 1500,
+        "sushi": 2000,
+        "salad": 1000,
+        "pasta": 1400,
+        "steak": 3000,
+        "sandwich": 800,
+        "ramen": 900,
+        "chicken": 1200,
+    },
+    "GBP": {
+        "coffee": 4.50,
+        "burger": 10.00,
+        "pizza": 12.00,
+        "sushi": 15.00,
+        "salad": 8.50,
+        "pasta": 11.00,
+        "steak": 20.00,
+        "sandwich": 6.50,
+        "ramen": 8.00,
+        "chicken": 10.00,
+    },
+}
 
-class GeminiClassifier:
-    """Gemini AI를 사용한 지출 분류기"""
+def get_exchange_rate(currency: str) -> float:
+    return EXCHANGE_RATES.get(currency, 1300)
+
+def get_average_price(currency: str, item_name: str) -> Optional[float]:
+    if currency not in AVERAGE_PRICES:
+        return None
     
-    # 지원하는 카테고리
-    CATEGORIES = {
-        'food': '식비',
-        'transport': '교통',
-        'housing': '주거',
-        'study': '학업',
-        'shopping': '쇼핑',
-        'health': '의료',
-        'transfer': '송금',
-        'other': '기타',
-    }
+    item_lower = item_name.lower()
+    prices = AVERAGE_PRICES[currency]
     
-    @staticmethod
-    def classify_text(text: str) -> ClassifyResponse:
-        """
-        결제 알림 텍스트 분석 및 분류
-        
-        Args:
-            text: 결제 알림 텍스트
-            
-        Returns:
-            ClassifyResponse: 분류 결과
-        """
+    for key, price in prices.items():
+        if key in item_lower or item_lower in key:
+            return price
+    
+    return None
+
+def extract_json_from_text(text: str) -> Dict[str, Any]:
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
         try:
-            model = genai.GenerativeModel('gemini-pro')
+            return json.loads(json_match.group())
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+def analyze_receipt(image_data: str, target_country: str = "USD") -> Dict[str, Any]:
+    """
+    영수증 이미지 분석 - OCR 기능
+    상호명, 품목리스트, 현지통화 총합계, 원화 환산 금액, 더치페이 정산 추천 금액 포함
+    """
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        prompt = f"""
+        Please analyze this receipt image and extract the following information in JSON format:
+        
+        {{
+            "merchant_name": "Name of the store/restaurant",
+            "items": [
+                {{"name": "item name", "quantity": 1, "price": 0.00}},
+            ],
+            "subtotal": 0.00,
+            "tax": 0.00,
+            "total": 0.00,
+            "currency": "{target_country}",
+            "date": "YYYY-MM-DD",
+            "time": "HH:MM"
+        }}
+        
+        Return ONLY valid JSON, no additional text.
+        """
+        
+        response = model.generate_content([
+            {
+                "mime_type": "image/jpeg",
+                "data": image_data,
+            },
+            prompt
+        ])
+        
+        receipt_data = extract_json_from_text(response.text)
+        
+        if not receipt_data:
+            receipt_data = {
+                "merchant_name": "Unknown",
+                "items": [],
+                "subtotal": 0.0,
+                "tax": 0.0,
+                "total": 0.0,
+                "currency": target_country,
+            }
+        
+        total_local = receipt_data.get("total", 0.0)
+        exchange_rate = get_exchange_rate(target_country)
+        total_krw = total_local * exchange_rate
+        
+        items = receipt_data.get("items", [])
+        num_people = len([item for item in items if item]) if items else 1
+        if num_people == 0:
+            num_people = 1
+        
+        dutch_pay_per_person = total_krw / num_people
+        
+        result = {
+            "merchant_name": receipt_data.get("merchant_name", "Unknown"),
+            "items": items,
+            "subtotal_local": receipt_data.get("subtotal", 0.0),
+            "tax_local": receipt_data.get("tax", 0.0),
+            "total_local": total_local,
+            "currency": target_country,
+            "total_krw": round(total_krw, 2),
+            "exchange_rate": exchange_rate,
+            "dutch_pay": {
+                "num_people": num_people,
+                "per_person_krw": round(dutch_pay_per_person, 2),
+                "per_person_local": round(total_local / num_people, 2),
+            },
+            "date": receipt_data.get("date"),
+            "time": receipt_data.get("time"),
+        }
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "merchant_name": "Error",
+            "total_krw": 0.0,
+            "currency": target_country,
+        }
+
+def analyze_price_before_purchase(image_data_or_text: str, target_country: str = "USD", is_image: bool = False) -> Dict[str, Any]:
+    """
+    메뉴판/가격표 분석 - 결제 전 가격 비교
+    메뉴명, 현지 가격, 원화 환산 금액, 평균가 비교 멘트 포함
+    """
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        if is_image:
+            prompt = f"""
+            Analyze this menu/price list image and extract items with prices in JSON format:
             
-            prompt = f"""다음 결제 알림 텍스트를 분석하고 JSON 형식으로 반환해줘:
-
-결제 알림: {text}
-
-다음 정보를 추출해줘:
-1. merchant (상호명): 결제처 이름
-2. amount (금액): 숫자만 추출
-3. currency (통화): KRW, USD, EUR 등
-4. category (카테고리): {', '.join(GeminiClassifier.CATEGORIES.keys())} 중 하나
-5. confidence (신뢰도): 0.0 ~ 1.0 사이의 값
-6. description (설명): 간단한 설명
-
-JSON 형식으로만 반환해줘:
-{{
-    "merchant": "상호명",
-    "amount": 0.0,
-    "currency": "KRW",
-    "category": "food",
-    "confidence": 0.95,
-    "description": "설명"
-}}"""
+            {{
+                "menu_items": [
+                    {{"name": "item name", "price": 0.00, "description": "brief description"}},
+                ],
+                "currency": "{target_country}",
+                "restaurant_name": "Name if visible"
+            }}
+            
+            Return ONLY valid JSON, no additional text.
+            """
+            
+            response = model.generate_content([
+                {
+                    "mime_type": "image/jpeg",
+                    "data": image_data_or_text,
+                },
+                prompt
+            ])
+        else:
+            prompt = f"""
+            Parse this menu text and extract items with prices in JSON format:
+            
+            {{
+                "menu_items": [
+                    {{"name": "item name", "price": 0.00, "description": "brief description"}},
+                ],
+                "currency": "{target_country}",
+                "restaurant_name": "Name if mentioned"
+            }}
+            
+            Text to parse:
+            {image_data_or_text}
+            
+            Return ONLY valid JSON, no additional text.
+            """
             
             response = model.generate_content(prompt)
-            
-            # JSON 파싱
-            result_text = response.text
-            # JSON 블록 추출
-            if '```json' in result_text:
-                json_str = result_text.split('```json')[1].split('```')[0].strip()
-            elif '```' in result_text:
-                json_str = result_text.split('```')[1].split('```')[0].strip()
-            else:
-                json_str = result_text.strip()
-            
-            result = json.loads(json_str)
-            
-            # 유효성 검증
-            result['amount'] = float(result.get('amount', 0))
-            result['confidence'] = float(result.get('confidence', 0.5))
-            
-            if result['category'] not in GeminiClassifier.CATEGORIES:
-                result['category'] = 'other'
-            
-            return ClassifyResponse(
-                merchant=result['merchant'],
-                amount=result['amount'],
-                currency=result.get('currency', 'KRW'),
-                category=result['category'],
-                confidence=result['confidence'],
-                description=result.get('description'),
-                raw_analysis=response.text
-            )
-            
-        except Exception as e:
-            logger.error(f"Gemini 텍스트 분류 오류: {str(e)}")
-            # 기본값 반환
-            return ClassifyResponse(
-                merchant="Unknown",
-                amount=0.0,
-                currency="KRW",
-                category="other",
-                confidence=0.0,
-                description=f"분류 오류: {str(e)}"
-            )
-    
-    @staticmethod
-    def classify_image(image_base64: str) -> ClassifyResponse:
-        """
-        영수증 이미지 분석 및 분류 (OCR)
         
-        Args:
-            image_base64: Base64 인코딩된 이미지
-            
-        Returns:
-            ClassifyResponse: 분류 결과
-        """
-        try:
-            model = genai.GenerativeModel('gemini-pro-vision')
-            
-            # Base64 이미지 데이터 준비
-            image_data = {
-                "mime_type": "image/jpeg",
-                "data": image_base64
+        menu_data = extract_json_from_text(response.text)
+        
+        if not menu_data:
+            menu_data = {
+                "menu_items": [],
+                "currency": target_country,
+                "restaurant_name": "Unknown",
             }
-            
-            prompt = f"""이 영수증 이미지를 분석하고 JSON 형식으로 반환해줘:
-
-다음 정보를 추출해줘:
-1. merchant (상호명): 가게 이름
-2. amount (금액): 총액 (숫자만)
-3. currency (통화): KRW, USD, EUR 등
-4. category (카테고리): {', '.join(GeminiClassifier.CATEGORIES.keys())} 중 하나
-5. confidence (신뢰도): 0.0 ~ 1.0 사이의 값 (이미지 품질에 따라)
-6. description (설명): 구매 항목 요약
-
-JSON 형식으로만 반환해줘:
-{{
-    "merchant": "가게명",
-    "amount": 0.0,
-    "currency": "KRW",
-    "category": "food",
-    "confidence": 0.9,
-    "description": "구매 항목"
-}}"""
-            
-            response = model.generate_content([prompt, image_data])
-            
-            # JSON 파싱
-            result_text = response.text
-            if '```json' in result_text:
-                json_str = result_text.split('```json')[1].split('```')[0].strip()
-            elif '```' in result_text:
-                json_str = result_text.split('```')[1].split('```')[0].strip()
-            else:
-                json_str = result_text.strip()
-            
-            result = json.loads(json_str)
-            
-            # 유효성 검증
-            result['amount'] = float(result.get('amount', 0))
-            result['confidence'] = float(result.get('confidence', 0.5))
-            
-            if result['category'] not in GeminiClassifier.CATEGORIES:
-                result['category'] = 'other'
-            
-            return ClassifyResponse(
-                merchant=result['merchant'],
-                amount=result['amount'],
-                currency=result.get('currency', 'KRW'),
-                category=result['category'],
-                confidence=result['confidence'],
-                description=result.get('description'),
-                raw_analysis=response.text
-            )
-            
-        except Exception as e:
-            logger.error(f"Gemini 이미지 분류 오류: {str(e)}")
-            return ClassifyResponse(
-                merchant="Unknown",
-                amount=0.0,
-                currency="KRW",
-                category="other",
-                confidence=0.0,
-                description=f"이미지 분석 오류: {str(e)}"
-            )
-    
-    @staticmethod
-    def classify_image_from_url(image_url: str) -> ClassifyResponse:
-        """
-        URL에서 이미지를 다운로드하여 분석
         
-        Args:
-            image_url: 이미지 URL
+        exchange_rate = get_exchange_rate(target_country)
+        
+        analyzed_items = []
+        for item in menu_data.get("menu_items", []):
+            item_name = item.get("name", "Unknown")
+            local_price = item.get("price", 0.0)
+            krw_price = local_price * exchange_rate
             
-        Returns:
-            ClassifyResponse: 분류 결과
-        """
-        try:
-            import httpx
+            average_price = get_average_price(target_country, item_name)
             
-            # 이미지 다운로드
-            async def download_image():
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(image_url)
-                    return base64.b64encode(response.content).decode('utf-8')
+            if average_price:
+                price_diff = local_price - average_price
+                price_diff_percent = (price_diff / average_price * 100) if average_price > 0 else 0
+                
+                if price_diff > 0:
+                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 대비 약 {price_diff_percent:.1f}% 높게 책정되어 있습니다."
+                elif price_diff < 0:
+                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 대비 약 {abs(price_diff_percent):.1f}% 낮게 책정되어 있습니다."
+                else:
+                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 가격과 동일하게 책정되어 있습니다."
+            else:
+                comparison = f"이 메뉴의 평균 가격 정보가 없습니다."
             
-            # 동기 방식으로 처리 (간단한 구현)
-            import asyncio
-            image_base64 = asyncio.run(download_image())
-            
-            return GeminiClassifier.classify_image(image_base64)
-            
-        except Exception as e:
-            logger.error(f"이미지 URL 처리 오류: {str(e)}")
-            return ClassifyResponse(
-                merchant="Unknown",
-                amount=0.0,
-                currency="KRW",
-                category="other",
-                confidence=0.0,
-                description=f"이미지 다운로드 오류: {str(e)}"
-            )
+            analyzed_items.append({
+                "name": item_name,
+                "price_local": local_price,
+                "price_krw": round(krw_price, 2),
+                "currency": target_country,
+                "description": item.get("description", ""),
+                "average_price_local": average_price,
+                "price_comparison": comparison,
+            })
+        
+        result = {
+            "restaurant_name": menu_data.get("restaurant_name", "Unknown"),
+            "menu_items": analyzed_items,
+            "currency": target_country,
+            "exchange_rate": exchange_rate,
+        }
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "restaurant_name": "Error",
+            "menu_items": [],
+            "currency": target_country,
+        }

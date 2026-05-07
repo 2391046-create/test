@@ -31,6 +31,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: '홈', tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} /> }} />
+      <Tabs.Screen name="receipt-scanner" options={{ title: '영수증', tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.image.fill" color={color} /> }} />
+      <Tabs.Screen name="menu-scanner" options={{ title: '메뉴판', tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.bullet" color={color} /> }} />
+      <Tabs.Screen name="dutch-pay" options={{ title: '더치페이', tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.2.fill" color={color} /> }} />
       <Tabs.Screen name="records" options={{ title: '기록', tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.bullet.rectangle.fill" color={color} /> }} />
       <Tabs.Screen name="report" options={{ title: '리포트', tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.pie.fill" color={color} /> }} />
       <Tabs.Screen name="analytics" options={{ title: '분석', tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} /> }} />

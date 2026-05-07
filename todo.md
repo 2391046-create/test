@@ -43,3 +43,48 @@
 - Classification Accuracy: 73.3% (11/15 merchants correctly classified)
 - Test Coverage: 10 tests passing, 1 skipped
 - Type Safety: 0 TypeScript errors
+
+
+## 다국 영수증 인증 서비스 (완료)
+- [x] 영수증 OCR 분석 (Gemini 1.5 Flash)
+- [x] 상호명, 품목, 금액 추출
+- [x] 원화 환산 금액 계산
+- [x] 더치페이 자동 정산 추천
+
+## 더치페이 정산 서비스 (완료)
+- [x] 참가자 추가/제거
+- [x] 각 참가자 결제 금액 입력
+- [x] 자동 정산 계산
+- [x] 정산 내역 시각화
+
+## 메뉴판 스캐너 (완료)
+- [x] 메뉴판 이미지 분석
+- [x] 메뉴명 및 가격 추출
+- [x] 평균가 비교 분석
+- [x] 텍스트 입력 모드 지원
+
+## 국가/통화 설정 (완료)
+- [x] 10개 국가 지원 (USD, JPY, GBP, EUR, CNY, THB, SGD, AUD, CAD, HKD)
+- [x] 환율 자동 계산
+- [x] XRPL 지갑 설정
+- [x] 백엔드 URL 설정
+
+## 모바일 앱 화면 (완료)
+- [x] 설정 화면 - 국가/통화, XRPL, 백엔드 설정
+- [x] 영수증 스캐너 - 카메라/갤러리, 분석, 더치페이
+- [x] 메뉴판 스캐너 - 이미지/텍스트, 평균가 비교
+- [x] 더치페이 정산 - 인원 관리, 금액 입력, 자동 정산
+- [x] 탭 네비게이션 - 4개 새로운 탭 추가
+
+## API 훅 (완료)
+- [x] useSettings - AsyncStorage 기반 설정 관리
+- [x] useReceiptScanner - 영수증 스캔 및 분석
+- [x] useMenuScanner - 메뉴판 스캔 및 분석
+- [x] useDutchPay - 더치페이 정산 계산
+- [x] useXRPL - XRPL 트랜잭션 기록
+
+## 타입 정의 (완료)
+- [x] Currency, CountryConfig
+- [x] ReceiptAnalysisResult, MenuAnalysisResult
+- [x] DutchPaySettlement, DutchPayMember
+- [x] XRPLTransactionResult, AppSettings

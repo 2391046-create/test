@@ -1,44 +1,179 @@
-import { FlatList, Text, View } from 'react-native';
-
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
-import { categories } from '@/lib/finance';
+import { useSettings } from '@/hooks/useSettings';
+import { COUNTRY_CONFIGS, Currency } from '@/types';
+import { useState } from 'react';
 
 export default function SettingsScreen() {
+  const { settings, updateSettings, setCurrency } = useSettings();
+  const [xrplSeed, setXrplSeed] = useState(settings.xrplWalletSeed || '');
+  const [xrplAddress, setXrplAddress] = useState(settings.xrplAccountAddress || '');
+  const [backendUrl, setBackendUrl] = useState(settings.backendUrl);
+
+  const handleCurrencyChange = async (currency: Currency) => {
+    await setCurrency(currency);
+  };
+
+  const handleSaveXRPL = async () => {
+    if (!xrplSeed || !xrplAddress) {
+      Alert.alert('오류', '지갑 정보를 모두 입력해주세요');
+      return;
+    }
+
+    await updateSettings({
+      xrplWalletSeed: xrplSeed,
+      xrplAccountAddress: xrplAddress,
+    });
+
+    Alert.alert('성공', 'XRPL 지갑 정보가 저장되었습니다');
+  };
+
+  const handleSaveBackendUrl = async () => {
+    if (!backendUrl) {
+      Alert.alert('오류', '백엔드 URL을 입력해주세요');
+      return;
+    }
+
+    await updateSettings({
+      backendUrl: backendUrl,
+    });
+
+    Alert.alert('성공', '백엔드 URL이 저장되었습니다');
+  };
+
   return (
-    <ScreenContainer className="px-5 pt-2">
-      <FlatList
-        data={categories}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View className="gap-4 pb-4">
-            <View>
-              <Text className="text-3xl font-bold text-foreground leading-10">설정</Text>
-              <Text className="text-sm text-muted leading-5">자동 분류 규칙과 서비스 범위를 확인합니다.</Text>
-            </View>
-            <View className="rounded-3xl bg-surface border border-border p-5 gap-2">
-              <Text className="text-base font-bold text-foreground">MVP 운영 방식</Text>
-              <Text className="text-sm text-muted leading-5">이 버전은 개인정보 보호와 플랫폼 제약을 고려해 실제 알림 권한을 읽지 않고, 사용자가 붙여넣은 결제 문구를 분석합니다. 향후 금융 API, OS 권한, XRPL 지갑이 연결되면 자동화 범위를 확장할 수 있습니다.</Text>
-            </View>
-            <Text className="text-lg font-bold text-foreground">카테고리 키워드</Text>
+    <ScreenContainer className="p-4">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="gap-6">
+        {/* 헤더 */}
+        <View className="gap-2">
+          <Text className="text-3xl font-bold text-foreground">설정</Text>
+          <Text className="text-sm text-muted">앱 설정 및 환경 구성</Text>
+        </View>
+
+        {/* 국가/통화 선택 */}
+        <View className="gap-3">
+          <Text className="text-lg font-semibold text-foreground">국가 및 통화</Text>
+          <Text className="text-sm text-muted">
+            현재 선택: {settings.selectedCountry} ({settings.selectedCurrency})
+          </Text>
+
+          <View className="gap-2">
+            {Object.entries(COUNTRY_CONFIGS).map(([currency, config]) => (
+              <TouchableOpacity
+                key={currency}
+                onPress={() => handleCurrencyChange(currency as Currency)}
+                className={`p-4 rounded-lg border-2 ${
+                  settings.selectedCurrency === currency
+                    ? 'bg-primary border-primary'
+                    : 'bg-surface border-border'
+                }`}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-3">
+                    <Text className="text-2xl">{config.flag}</Text>
+                    <View>
+                      <Text
+                        className={`font-semibold ${
+                          settings.selectedCurrency === currency
+                            ? 'text-background'
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {config.name}
+                      </Text>
+                      <Text
+                        className={`text-xs ${
+                          settings.selectedCurrency === currency
+                            ? 'text-background'
+                            : 'text-muted'
+                        }`}
+                      >
+                        {currency} (1 {currency} = ₩{config.exchangeRate.toLocaleString()})
+                      </Text>
+                    </View>
+                  </View>
+                  {settings.selectedCurrency === currency && (
+                    <Text className="text-lg text-background">✓</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
-        }
-        renderItem={({ item }) => (
-          <View className="mb-3 rounded-2xl bg-surface border border-border p-4">
-            <View className="flex-row items-center gap-3">
-              <View style={{ backgroundColor: item.tone }} className="h-4 w-4 rounded-full" />
-              <Text className="text-base font-bold text-foreground">{item.label}</Text>
-            </View>
-            <Text className="mt-2 text-xs text-muted leading-4">{item.keywords.length ? item.keywords.slice(0, 8).join(', ') : '분류 규칙에 매칭되지 않은 거래'}</Text>
+        </View>
+
+        {/* XRPL 지갑 설정 */}
+        <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
+          <Text className="text-lg font-semibold text-foreground">XRPL 지갑 설정</Text>
+
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-muted">지갑 Seed</Text>
+            <TextInput
+              value={xrplSeed}
+              onChangeText={setXrplSeed}
+              placeholder="XRPL 지갑 시드 입력"
+              secureTextEntry
+              className="p-3 bg-background border border-border rounded-lg text-foreground"
+              placeholderTextColor="#9BA1A6"
+            />
           </View>
-        )}
-        ListFooterComponent={
-          <View className="rounded-3xl bg-surface border border-border p-4 mb-8">
-            <Text className="text-base font-bold text-foreground">장기 확장 방향</Text>
-            <Text className="mt-2 text-sm text-muted leading-5">첨부 기획의 XRPL 기반 다국 통화 지갑, DEX 환전, 온체인 Memo 태깅, 해시·QR 검증 리포트는 장기 로드맵으로 유지했습니다. 현재 앱은 투자 없이 핵심 UX를 검증할 수 있는 프로토타입입니다.</Text>
+
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-muted">계정 주소</Text>
+            <TextInput
+              value={xrplAddress}
+              onChangeText={setXrplAddress}
+              placeholder="XRPL 계정 주소 입력"
+              className="p-3 bg-background border border-border rounded-lg text-foreground"
+              placeholderTextColor="#9BA1A6"
+            />
           </View>
-        }
-      />
+
+          <TouchableOpacity
+            onPress={handleSaveXRPL}
+            className="p-3 bg-primary rounded-lg mt-2"
+          >
+            <Text className="text-center font-semibold text-background">
+              XRPL 지갑 저장
+            </Text>
+          </TouchableOpacity>
+
+          {settings.xrplWalletSeed && (
+            <Text className="text-xs text-success">✓ XRPL 지갑이 설정되었습니다</Text>
+          )}
+        </View>
+
+        {/* 백엔드 URL 설정 */}
+        <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
+          <Text className="text-lg font-semibold text-foreground">백엔드 설정</Text>
+
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-muted">API URL</Text>
+            <TextInput
+              value={backendUrl}
+              onChangeText={setBackendUrl}
+              placeholder="http://localhost:8000"
+              className="p-3 bg-background border border-border rounded-lg text-foreground"
+              placeholderTextColor="#9BA1A6"
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={handleSaveBackendUrl}
+            className="p-3 bg-primary rounded-lg mt-2"
+          >
+            <Text className="text-center font-semibold text-background">
+              백엔드 URL 저장
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 정보 */}
+        <View className="gap-2 p-4 bg-surface rounded-lg border border-border">
+          <Text className="text-sm font-semibold text-foreground">앱 정보</Text>
+          <Text className="text-xs text-muted">Finance Compass v1.0.0</Text>
+          <Text className="text-xs text-muted">유학생 재정 관리 및 XRPL 블록체인 연동</Text>
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
