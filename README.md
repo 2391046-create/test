@@ -62,6 +62,9 @@ docker-compose up -d
 ```bash
 cd backend
 
+# FastAPI 설
+pip install uvicorn fastapi
+
 # 가상환경 생성 및 활성화
 python -m venv venv
 
