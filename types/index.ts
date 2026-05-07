@@ -164,6 +164,11 @@ export interface XRPLTransactionResult {
 export interface AppSettings {
   selectedCurrency: Currency;
   selectedCountry: string;
+  // LivingFund API 연동 필드
+  xrplUserId?: string;       // POST /api/users/ 응답 id
+  xrplWalletId?: string;     // POST /api/wallets/ 응답 id
+  xrplAddress?: string;      // XRPL 주소 (표시용)
+  // legacy — 직접 seed 입력 방식 (더 이상 사용 안 함)
   xrplWalletSeed?: string;
   xrplAccountAddress?: string;
   backendUrl: string;

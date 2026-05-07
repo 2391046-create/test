@@ -35,6 +35,7 @@ export default function TabLayout() {
       <Tabs.Screen name="receipt-scanner" options={{ title: '영수증', tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.image.fill" color={color} /> }} />
       <Tabs.Screen name="menu-scanner" options={{ title: '가격분석', tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} /> }} />
       <Tabs.Screen name="rates" options={{ title: '환율', tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.line.uptrend.xyaxis" color={color} /> }} />
+      <Tabs.Screen name="wallet" options={{ title: '지갑', tabBarIcon: ({ color }) => <IconSymbol size={26} name="creditcard.fill" color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: '설정', tabBarIcon: ({ color }) => <IconSymbol size={26} name="gearshape.fill" color={color} /> }} />
     </Tabs>
   );

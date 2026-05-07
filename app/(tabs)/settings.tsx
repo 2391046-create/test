@@ -1,44 +1,60 @@
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { useSettings } from '@/hooks/useSettings';
 import { COUNTRY_CONFIGS, Currency } from '@/types';
 import { useState } from 'react';
+import { livingFundApi } from '@/lib/livingFundApi';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, setCurrency } = useSettings();
-  const [xrplSeed, setXrplSeed] = useState(settings.xrplWalletSeed || '');
-  const [xrplAddress, setXrplAddress] = useState(settings.xrplAccountAddress || '');
   const [backendUrl, setBackendUrl] = useState(settings.backendUrl);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userPhone, setUserPhone] = useState('');
+  const [creatingWallet, setCreatingWallet] = useState(false);
+
+  const api = livingFundApi(settings.backendUrl);
 
   const handleCurrencyChange = async (currency: Currency) => {
     await setCurrency(currency);
   };
 
-  const handleSaveXRPL = async () => {
-    if (!xrplSeed || !xrplAddress) {
-      Alert.alert('오류', '지갑 정보를 모두 입력해주세요');
+  const handleCreateWallet = async () => {
+    if (!userName || !userEmail) {
+      Alert.alert('오류', '이름과 이메일을 입력해주세요');
       return;
     }
-
-    await updateSettings({
-      xrplWalletSeed: xrplSeed,
-      xrplAccountAddress: xrplAddress,
-    });
-
-    Alert.alert('성공', 'XRPL 지갑 정보가 저장되었습니다');
+    setCreatingWallet(true);
+    try {
+      const user = await api.createUser(userName, userEmail, userPhone || undefined);
+      const wallet = await api.createWallet(user.id);
+      await updateSettings({
+        xrplUserId: user.id,
+        xrplWalletId: wallet.id,
+        xrplAddress: wallet.xrpl_address,
+      });
+      Alert.alert('성공', `지갑이 생성되었습니다!\n주소: ${wallet.xrpl_address}`);
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '지갑 생성 실패');
+    } finally {
+      setCreatingWallet(false);
+    }
   };
 
-  const handleSaveBackendUrl = async () => {
-    if (!backendUrl) {
-      Alert.alert('오류', '백엔드 URL을 입력해주세요');
-      return;
+  const handleResetWallet = async () => {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('지갑 연결을 해제하시겠습니까?')) return;
+      await updateSettings({ xrplUserId: undefined, xrplWalletId: undefined, xrplAddress: undefined });
+    } else {
+      Alert.alert('지갑 초기화', '지갑 연결을 해제하시겠습니까?', [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '초기화', style: 'destructive', onPress: async () => {
+            await updateSettings({ xrplUserId: undefined, xrplWalletId: undefined, xrplAddress: undefined });
+          }
+        },
+      ]);
     }
-
-    await updateSettings({
-      backendUrl: backendUrl,
-    });
-
-    Alert.alert('성공', '백엔드 URL이 저장되었습니다');
   };
 
   return (
@@ -105,65 +121,97 @@ export default function SettingsScreen() {
         <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
           <Text className="text-lg font-semibold text-foreground">XRPL 지갑 설정</Text>
 
-          <View className="gap-2">
-            <Text className="text-sm font-medium text-muted">지갑 Seed</Text>
-            <TextInput
-              value={xrplSeed}
-              onChangeText={setXrplSeed}
-              placeholder="XRPL 지갑 시드 입력"
-              secureTextEntry
-              className="p-3 bg-background border border-border rounded-lg text-foreground"
-              placeholderTextColor="#9BA1A6"
-            />
-          </View>
-
-          <View className="gap-2">
-            <Text className="text-sm font-medium text-muted">계정 주소</Text>
-            <TextInput
-              value={xrplAddress}
-              onChangeText={setXrplAddress}
-              placeholder="XRPL 계정 주소 입력"
-              className="p-3 bg-background border border-border rounded-lg text-foreground"
-              placeholderTextColor="#9BA1A6"
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={handleSaveXRPL}
-            className="p-3 bg-primary rounded-lg mt-2"
-          >
-            <Text className="text-center font-semibold text-background">
-              XRPL 지갑 저장
-            </Text>
-          </TouchableOpacity>
-
-          {settings.xrplWalletSeed && (
-            <Text className="text-xs text-success">✓ XRPL 지갑이 설정되었습니다</Text>
+          {settings.xrplAddress ? (
+            <View className="gap-3">
+              <View className="p-3 bg-background rounded-lg border border-border">
+                <Text className="text-xs text-muted mb-1">연결된 지갑 주소</Text>
+                <Text className="text-sm text-foreground font-mono" numberOfLines={1} ellipsizeMode="middle">
+                  {settings.xrplAddress}
+                </Text>
+              </View>
+              <Text className="text-xs text-success">✓ XRPL 지갑이 연결되어 있습니다</Text>
+              <TouchableOpacity
+                onPress={handleResetWallet}
+                className="p-3 bg-surface border border-border rounded-lg"
+              >
+                <Text className="text-center font-semibold text-foreground">지갑 연결 해제</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="gap-3">
+              <View className="gap-2">
+                <Text className="text-sm font-medium text-muted">이름</Text>
+                <TextInput
+                  value={userName}
+                  onChangeText={setUserName}
+                  placeholder="홍길동"
+                  className="p-3 bg-background border border-border rounded-lg text-foreground"
+                  placeholderTextColor="#9BA1A6"
+                />
+              </View>
+              <View className="gap-2">
+                <Text className="text-sm font-medium text-muted">이메일</Text>
+                <TextInput
+                  value={userEmail}
+                  onChangeText={setUserEmail}
+                  placeholder="example@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  className="p-3 bg-background border border-border rounded-lg text-foreground"
+                  placeholderTextColor="#9BA1A6"
+                />
+              </View>
+              <View className="gap-2">
+                <Text className="text-sm font-medium text-muted">전화번호 (선택)</Text>
+                <TextInput
+                  value={userPhone}
+                  onChangeText={setUserPhone}
+                  placeholder="010-0000-0000"
+                  keyboardType="phone-pad"
+                  className="p-3 bg-background border border-border rounded-lg text-foreground"
+                  placeholderTextColor="#9BA1A6"
+                />
+              </View>
+              <TouchableOpacity
+                onPress={handleCreateWallet}
+                disabled={creatingWallet}
+                className={`p-3 rounded-lg mt-1 flex-row items-center justify-center gap-2 ${creatingWallet ? 'bg-muted' : 'bg-primary'}`}
+              >
+                {creatingWallet && <ActivityIndicator size="small" color="#fff" />}
+                <Text className="text-center font-semibold text-background">
+                  {creatingWallet ? '지갑 생성 중... (15~30초)' : 'XRPL 지갑 생성'}
+                </Text>
+              </TouchableOpacity>
+              <Text className="text-xs text-muted">
+                백엔드 서버에 계정을 등록하고 XRPL Testnet 지갑을 자동으로 생성합니다.
+              </Text>
+            </View>
           )}
         </View>
 
         {/* 백엔드 URL 설정 */}
         <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
           <Text className="text-lg font-semibold text-foreground">백엔드 설정</Text>
-
+          <Text className="text-xs text-muted">폰에서 사용할 때는 localhost 대신 PC의 IP 주소로 변경하세요 (예: http://192.168.x.x:8000)</Text>
           <View className="gap-2">
-            <Text className="text-sm font-medium text-muted">API URL</Text>
+            <Text className="text-sm font-medium text-muted">FastAPI URL</Text>
             <TextInput
               value={backendUrl}
               onChangeText={setBackendUrl}
               placeholder="http://localhost:8000"
+              autoCapitalize="none"
               className="p-3 bg-background border border-border rounded-lg text-foreground"
               placeholderTextColor="#9BA1A6"
             />
           </View>
-
           <TouchableOpacity
-            onPress={handleSaveBackendUrl}
-            className="p-3 bg-primary rounded-lg mt-2"
+            onPress={async () => {
+              await updateSettings({ backendUrl });
+              Alert.alert('성공', '저장되었습니다');
+            }}
+            className="p-3 bg-primary rounded-lg"
           >
-            <Text className="text-center font-semibold text-background">
-              백엔드 URL 저장
-            </Text>
+            <Text className="text-center font-semibold text-background">저장</Text>
           </TouchableOpacity>
         </View>
 
