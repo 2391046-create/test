@@ -8,6 +8,7 @@ type Tab = 'balance' | 'charge' | 'exchange' | 'history';
 
 export default function WalletScreen() {
   const { settings } = useSettings();
+  const isEn = settings.language === 'en';
   const [activeTab, setActiveTab] = useState<Tab>('balance');
 
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
@@ -62,7 +63,7 @@ export default function WalletScreen() {
   const handleCharge = async () => {
     if (!walletId) return;
     if (!senderSeed || !chargeAmount) {
-      Alert.alert('오류', '발신자 Seed와 금액을 입력해주세요');
+      Alert.alert(isEn ? 'Error' : '오류', isEn ? 'Please enter sender seed and amount' : '발신자 Seed와 금액을 입력해주세요');
       return;
     }
     setCharging(true);
@@ -73,12 +74,12 @@ export default function WalletScreen() {
         amount: chargeAmount,
         currency: chargeCurrency,
       });
-      Alert.alert('성공', `${chargeAmount} ${chargeCurrency} 충전이 완료되었습니다`);
+      Alert.alert(isEn ? 'Success' : '성공', isEn ? `${chargeAmount} ${chargeCurrency} charge completed` : `${chargeAmount} ${chargeCurrency} 충전이 완료되었습니다`);
       setSenderSeed('');
       setChargeAmount('');
       await fetchWallet();
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '충전 실패');
+      Alert.alert(isEn ? 'Error' : '오류', e.message ?? (isEn ? 'Charge failed' : '충전 실패'));
     } finally {
       setCharging(false);
     }
@@ -87,11 +88,11 @@ export default function WalletScreen() {
   const handleExchange = async () => {
     if (!walletId) return;
     if (!exchangeAmount) {
-      Alert.alert('오류', '환전 금액을 입력해주세요');
+      Alert.alert(isEn ? 'Error' : '오류', isEn ? 'Please enter exchange amount' : '환전 금액을 입력해주세요');
       return;
     }
     if (fromCurrency === toCurrency) {
-      Alert.alert('오류', '동일한 통화로는 환전할 수 없습니다');
+      Alert.alert(isEn ? 'Error' : '오류', isEn ? 'Cannot exchange to the same currency' : '동일한 통화로는 환전할 수 없습니다');
       return;
     }
     setExchanging(true);
@@ -103,12 +104,12 @@ export default function WalletScreen() {
         fromMax: exchangeAmount,
       });
       const received = result.exchanged_amount;
-      const rate = result.rate ? ` (환율: ${result.rate})` : '';
-      Alert.alert('성공', `${exchangeAmount} ${fromCurrency} → ${received} ${toCurrency}${rate}`);
+      const rate = result.rate ? (isEn ? ` (Rate: ${result.rate})` : ` (환율: ${result.rate})`) : '';
+      Alert.alert(isEn ? 'Success' : '성공', `${exchangeAmount} ${fromCurrency} → ${received} ${toCurrency}${rate}`);
       setExchangeAmount('');
       await fetchWallet();
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '환전 실패');
+      Alert.alert(isEn ? 'Error' : '오류', e.message ?? (isEn ? 'Exchange failed' : '환전 실패'));
     } finally {
       setExchanging(false);
     }
@@ -119,9 +120,9 @@ export default function WalletScreen() {
       <ScreenContainer className="p-4 items-center justify-center">
         <View className="gap-4 items-center">
           <Text className="text-4xl">💳</Text>
-          <Text className="text-xl font-bold text-foreground">지갑 미연결</Text>
+          <Text className="text-xl font-bold text-foreground">{isEn ? 'Wallet not connected' : '지갑 미연결'}</Text>
           <Text className="text-sm text-muted text-center">
-            설정 탭에서 XRPL 지갑을 먼저 생성해주세요.
+            {isEn ? 'Please create an XRPL wallet in Settings first.' : '설정 탭에서 XRPL 지갑을 먼저 생성해주세요.'}
           </Text>
         </View>
       </ScreenContainer>
@@ -129,10 +130,10 @@ export default function WalletScreen() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'balance', label: '잔액' },
-    { key: 'charge', label: '충전' },
-    { key: 'exchange', label: '환전' },
-    { key: 'history', label: '내역' },
+    { key: 'balance', label: isEn ? 'Balance' : '잔액' },
+    { key: 'charge', label: isEn ? 'Charge' : '충전' },
+    { key: 'exchange', label: isEn ? 'Exchange' : '환전' },
+    { key: 'history', label: isEn ? 'History' : '내역' },
   ];
 
   const CURRENCIES = ['XRP', 'USD', 'EUR', 'KRW'];
@@ -145,7 +146,7 @@ export default function WalletScreen() {
       >
         {/* 헤더 */}
         <View className="gap-1 mb-4">
-          <Text className="text-3xl font-bold text-foreground">XRPL 지갑</Text>
+          <Text className="text-3xl font-bold text-foreground">{isEn ? 'XRPL Wallet' : 'XRPL 지갑'}</Text>
           <Text className="text-xs text-muted font-mono" numberOfLines={1} ellipsizeMode="middle">
             {settings.xrplAddress}
           </Text>
@@ -179,17 +180,17 @@ export default function WalletScreen() {
           <View className="gap-3">
             {!wallet ? (
               <View className="items-center py-8 gap-3">
-                <Text className="text-muted text-sm">당겨서 새로고침하거나 아래 버튼을 누르세요</Text>
+                <Text className="text-muted text-sm">{isEn ? 'Pull to refresh or tap the button below' : '당겨서 새로고침하거나 아래 버튼을 누르세요'}</Text>
                 <TouchableOpacity onPress={fetchWallet} className="px-5 py-2 bg-primary rounded-lg">
-                  <Text className="text-background font-semibold">잔액 조회</Text>
+                  <Text className="text-background font-semibold">{isEn ? 'Check balance' : '잔액 조회'}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <>
                 <View className="p-4 bg-surface rounded-lg border border-border gap-3">
-                  <Text className="text-sm font-semibold text-muted">보유 자산</Text>
+                  <Text className="text-sm font-semibold text-muted">{isEn ? 'Assets' : '보유 자산'}</Text>
                   {wallet.balances.length === 0 ? (
-                    <Text className="text-muted text-sm">보유 자산 없음</Text>
+                    <Text className="text-muted text-sm">{isEn ? 'No assets' : '보유 자산 없음'}</Text>
                   ) : (
                     wallet.balances.map((b, i) => (
                       <View key={i} className="flex-row justify-between items-center py-2 border-b border-border last:border-0">
@@ -200,7 +201,7 @@ export default function WalletScreen() {
                   )}
                 </View>
                 <TouchableOpacity onPress={fetchWallet} className="py-2 items-center">
-                  <Text className="text-primary text-sm">새로고침</Text>
+                  <Text className="text-primary text-sm">{isEn ? 'Refresh' : '새로고침'}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -210,11 +211,11 @@ export default function WalletScreen() {
         {/* 충전 탭 */}
         {activeTab === 'charge' && (
           <View className="gap-4 p-4 bg-surface rounded-lg border border-border">
-            <Text className="text-base font-semibold text-foreground">생활비 충전</Text>
-            <Text className="text-xs text-muted">부모님 지갑 Seed를 입력하면 내 지갑으로 자금을 전송합니다.</Text>
+            <Text className="text-base font-semibold text-foreground">{isEn ? 'Living fund charge' : '생활비 충전'}</Text>
+            <Text className="text-xs text-muted">{isEn ? 'Enter parent wallet seed to transfer funds to your wallet.' : '부모님 지갑 Seed를 입력하면 내 지갑으로 자금을 전송합니다.'}</Text>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">발신자 Seed (부모님)</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? 'Sender seed (parent)' : '발신자 Seed (부모님)'}</Text>
               <TextInput
                 value={senderSeed}
                 onChangeText={setSenderSeed}
@@ -227,7 +228,7 @@ export default function WalletScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">금액</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? 'Amount' : '금액'}</Text>
               <TextInput
                 value={chargeAmount}
                 onChangeText={setChargeAmount}
@@ -239,7 +240,7 @@ export default function WalletScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">통화</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? 'Currency' : '통화'}</Text>
               <View className="flex-row gap-2">
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
@@ -264,7 +265,7 @@ export default function WalletScreen() {
             >
               {charging && <ActivityIndicator size="small" color="#fff" />}
               <Text className="text-center font-semibold text-background">
-                {charging ? '처리 중...' : '충전하기'}
+                {charging ? (isEn ? 'Processing...' : '처리 중...') : (isEn ? 'Charge' : '충전하기')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -273,11 +274,11 @@ export default function WalletScreen() {
         {/* 환전 탭 */}
         {activeTab === 'exchange' && (
           <View className="gap-4 p-4 bg-surface rounded-lg border border-border">
-            <Text className="text-base font-semibold text-foreground">DEX 환전</Text>
-            <Text className="text-xs text-muted">XRPL 내장 DEX를 통해 자동으로 최적 환율로 환전합니다.</Text>
+            <Text className="text-base font-semibold text-foreground">{isEn ? 'DEX Exchange' : 'DEX 환전'}</Text>
+            <Text className="text-xs text-muted">{isEn ? 'Automatically exchange via XRPL built-in DEX at the best available rate.' : 'XRPL 내장 DEX를 통해 자동으로 최적 환율로 환전합니다.'}</Text>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">보낼 통화</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? 'From currency' : '보낼 통화'}</Text>
               <View className="flex-row gap-2">
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
@@ -296,7 +297,7 @@ export default function WalletScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">받을 통화</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? 'To currency' : '받을 통화'}</Text>
               <View className="flex-row gap-2">
                 {CURRENCIES.map((c) => (
                   <TouchableOpacity
@@ -315,7 +316,7 @@ export default function WalletScreen() {
             </View>
 
             <View className="gap-2">
-              <Text className="text-sm font-medium text-muted">보낼 금액 ({fromCurrency})</Text>
+              <Text className="text-sm font-medium text-muted">{isEn ? `Amount to send (${fromCurrency})` : `보낼 금액 (${fromCurrency})`}</Text>
               <TextInput
                 value={exchangeAmount}
                 onChangeText={setExchangeAmount}
@@ -333,7 +334,7 @@ export default function WalletScreen() {
             >
               {exchanging && <ActivityIndicator size="small" color="#fff" />}
               <Text className="text-center font-semibold text-background">
-                {exchanging ? '환전 중...' : `${fromCurrency} → ${toCurrency} 환전`}
+                {exchanging ? (isEn ? 'Exchanging...' : '환전 중...') : (isEn ? `${fromCurrency} → ${toCurrency} Exchange` : `${fromCurrency} → ${toCurrency} 환전`)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -344,9 +345,9 @@ export default function WalletScreen() {
           <View className="gap-3">
             {transactions.length === 0 ? (
               <View className="items-center py-8 gap-3">
-                <Text className="text-muted text-sm">거래 내역이 없습니다</Text>
+                <Text className="text-muted text-sm">{isEn ? 'No transaction history' : '거래 내역이 없습니다'}</Text>
                 <TouchableOpacity onPress={fetchTransactions} className="px-5 py-2 bg-primary rounded-lg">
-                  <Text className="text-background font-semibold">내역 조회</Text>
+                  <Text className="text-background font-semibold">{isEn ? 'Load history' : '내역 조회'}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
