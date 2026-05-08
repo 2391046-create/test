@@ -1,5 +1,6 @@
 // 국가 및 통화 설정
-export type Currency = "USD" | "JPY" | "GBP" | "EUR" | "CNY" | "THB" | "SGD" | "AUD" | "CAD" | "HKD";
+export type Currency = "KRW" | "USD" | "JPY" | "GBP" | "EUR" | "CNY" | "THB" | "SGD" | "AUD" | "CAD" | "HKD";
+export type Language = "ko" | "en";
 
 export interface CountryConfig {
   code: string;
@@ -10,6 +11,13 @@ export interface CountryConfig {
 }
 
 export const COUNTRY_CONFIGS: Record<Currency, CountryConfig> = {
+  KRW: {
+    code: "KR",
+    name: "한국",
+    currency: "KRW",
+    exchangeRate: 1,
+    flag: "🇰🇷",
+  },
   USD: {
     code: "US",
     name: "미국",
@@ -162,6 +170,7 @@ export interface XRPLTransactionResult {
 
 // 앱 설정
 export interface AppSettings {
+  language: Language;
   selectedCurrency: Currency;
   selectedCountry: string;
   // LivingFund API 연동 필드
