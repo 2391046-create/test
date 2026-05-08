@@ -141,6 +141,7 @@ export default function WalletScreen() {
   return (
     <ScreenContainer className="p-4">
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >

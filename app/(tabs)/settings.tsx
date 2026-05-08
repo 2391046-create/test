@@ -74,7 +74,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenContainer className="p-4">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="gap-6">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }} className="gap-6">
         {/* 헤더 */}
         <View className="gap-2">
           <Text className="text-3xl font-bold text-foreground">{isEn ? 'Settings' : '설정'}</Text>
