@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -81,7 +81,8 @@ export default function RatesScreen() {
 
   return (
     <ScreenContainer className="px-5 pt-2">
-      <View className="flex-1 gap-5">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+      <View className="gap-5">
         <View>
           <Text className="text-3xl font-bold text-foreground leading-10">{isEn ? 'Exchange Timing' : '환율 타이밍'}</Text>
           <Text className="text-sm text-muted leading-5">
@@ -147,6 +148,7 @@ export default function RatesScreen() {
             : '현재 버튼은 MVP 시연용입니다. 실제 알림 예약은 운영 단계에서 푸시 알림과 사용자 설정이 연결될 때 활성화됩니다.'}
         </Text>
       </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
