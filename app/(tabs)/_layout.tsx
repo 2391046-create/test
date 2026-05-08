@@ -42,6 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen name="settings" options={{ title: isEn ? 'Settings' : '설정', tabBarIcon: ({ color }) => <IconSymbol size={26} name="gearshape.fill" color={color} /> }} />
       <Tabs.Screen name="dutch-pay" options={{ href: null }} />
       <Tabs.Screen name="rules" options={{ href: null }} />
+      <Tabs.Screen name="report" options={{ href: null }} />
     </Tabs>
   );
 }
