@@ -1,10 +1,12 @@
 import { Text, View } from 'react-native';
 
 import { summarizeByCategory, Transaction } from '@/lib/finance';
+import { COUNTRY_CONFIGS, Currency } from '@/types';
 
 type Props = {
   transactions: Transaction[];
   isEn: boolean;
+  currency?: Currency;
 };
 
 const CATEGORY_LABEL_EN: Record<string, string> = {
@@ -18,10 +20,12 @@ const CATEGORY_LABEL_EN: Record<string, string> = {
   other: 'Other',
 };
 
-export function CategoryTotalsSection({ transactions, isEn }: Props) {
+export function CategoryTotalsSection({ transactions, isEn, currency = 'KRW' }: Props) {
   const locale = isEn ? 'en-US' : 'ko-KR';
   const rows = summarizeByCategory(transactions);
-  const total = rows.reduce((sum, row) => sum + row.amount, 0);
+  const targetRate = currency === 'KRW' ? 1 : (COUNTRY_CONFIGS[currency]?.exchangeRate ?? 1);
+  const totalKrw = rows.reduce((sum, row) => sum + row.amount, 0);
+  const total = totalKrw / targetRate;
 
   return (
     <View className="gap-3">
@@ -32,7 +36,8 @@ export function CategoryTotalsSection({ transactions, isEn }: Props) {
         </View>
       ) : (
         rows.map((item) => {
-          const percent = total > 0 ? Math.round((item.amount / total) * 100) : 0;
+          const convertedAmount = item.amount / targetRate;
+          const percent = total > 0 ? Math.round((convertedAmount / total) * 100) : 0;
           const label = isEn ? (CATEGORY_LABEL_EN[item.category.id] ?? item.category.label) : item.category.label;
           return (
             <View key={item.category.id} className="rounded-2xl bg-surface border border-border p-4">
@@ -44,7 +49,9 @@ export function CategoryTotalsSection({ transactions, isEn }: Props) {
                     <Text className="text-xs text-muted">{isEn ? `${item.count} items · ${percent}% of total` : `${item.count}건 · 전체 ${percent}%`}</Text>
                   </View>
                 </View>
-                <Text className="text-base font-bold text-foreground">₩{Math.round(item.amount).toLocaleString(locale)}</Text>
+                <Text className="text-base font-bold text-foreground">
+                  {Math.round(convertedAmount).toLocaleString(locale)} {currency}
+                </Text>
               </View>
               <View className="mt-3 h-2 overflow-hidden rounded-full bg-background">
                 <View style={{ width: `${Math.min(percent, 100)}%`, backgroundColor: item.category.tone }} className="h-2 rounded-full" />

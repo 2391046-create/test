@@ -6,14 +6,28 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useSettings } from '@/hooks/useSettings';
 import { convertToKrw } from '@/lib/finance';
 import { useFinance } from '@/lib/finance-context';
+import { COUNTRY_CONFIGS } from '@/types';
 
 export default function ReportScreen() {
   const { settings } = useSettings();
   const isEn = settings.language === 'en';
   const { transactions } = useFinance();
-  const total = transactions.reduce((sum, item) => sum + convertToKrw(item.amount, item.currency), 0);
-  const verified = transactions.filter((item) => item.confidence >= 0.9).length;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentMonthTransactions = transactions.filter((item) => {
+    const parsed = new Date(item.date);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.getFullYear() === currentYear && parsed.getMonth() === currentMonth;
+  });
+  const total = currentMonthTransactions.reduce((sum, item) => sum + convertToKrw(item.amount, item.currency), 0);
+  const verified = currentMonthTransactions.filter((item) => item.confidence >= 0.9).length;
   const locale = isEn ? 'en-US' : 'ko-KR';
+  const targetRate = settings.selectedCurrency === 'KRW' ? 1 : (COUNTRY_CONFIGS[settings.selectedCurrency]?.exchangeRate ?? 1);
+  const totalInSelectedCurrency = total / targetRate;
+  const monthLabel = isEn
+    ? `Submission summary for ${now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}`
+    : `${currentYear}년 ${currentMonth + 1}월 제출용 요약`;
 
   return (
     <ScreenContainer className="px-5 pt-2">
@@ -34,14 +48,16 @@ export default function ReportScreen() {
 
             <View className="rounded-[28px] bg-surface border border-border p-5 gap-4">
               <View className="flex-row items-center justify-between">
-                <Text className="text-sm font-semibold text-muted">{isEn ? 'Submission summary for May 2026' : '2026년 5월 제출용 요약'}</Text>
+                <Text className="text-sm font-semibold text-muted">{monthLabel}</Text>
                 <IconSymbol name="checkmark.seal.fill" color="#16A34A" size={28} />
               </View>
-              <Text className="text-4xl font-bold text-foreground leading-[46px]">₩{Math.round(total).toLocaleString(locale)}</Text>
+              <Text className="text-4xl font-bold text-foreground leading-[46px]">
+                {Math.round(totalInSelectedCurrency).toLocaleString(locale)} {settings.selectedCurrency}
+              </Text>
               <Text className="text-sm text-muted leading-5">
                 {isEn
-                  ? `${verified} of ${transactions.length} transactions were classified with high confidence. Each transaction includes hash-style trace data for verification.`
-                  : `총 ${transactions.length}건 중 ${verified}건이 높은 신뢰도로 분류되었습니다. 각 거래에는 검증용 해시 형식의 추적 정보가 포함됩니다.`}
+                  ? `${verified} of ${currentMonthTransactions.length} transactions were classified with high confidence this month. Each transaction includes hash-style trace data for verification.`
+                  : `이번 달 거래 총 ${currentMonthTransactions.length}건 중 ${verified}건이 높은 신뢰도로 분류되었습니다. 각 거래에는 검증용 해시 형식의 추적 정보가 포함됩니다.`}
               </Text>
             </View>
 
@@ -55,7 +71,7 @@ export default function ReportScreen() {
             </View>
           </View>
         }
-        renderItem={() => <CategoryTotalsSection transactions={transactions} isEn={isEn} />}
+        renderItem={() => <CategoryTotalsSection transactions={currentMonthTransactions} isEn={isEn} currency={settings.selectedCurrency} />}
         ListFooterComponent={
           <View className="rounded-3xl bg-surface border border-border p-4 mb-8">
             <Text className="text-base font-bold text-foreground">{isEn ? 'Verification QR mock' : '검증 QR 모형'}</Text>

@@ -111,7 +111,13 @@ export default function HomeScreen() {
     () =>
       categories
         .map((category) => {
-          const items = transactions.filter((tx) => tx.category === category.id);
+          const items = transactions.filter((tx) => {
+            if (tx.category !== category.id) return false;
+            const parsed = new Date(tx.date);
+            if (Number.isNaN(parsed.getTime())) return false;
+            const now = new Date();
+            return parsed.getFullYear() === now.getFullYear() && parsed.getMonth() === now.getMonth();
+          });
           const amount = items.reduce(
             (sum, tx) => sum + convertAmount(tx.amount, tx.currency, settings.selectedCurrency),
             0,
@@ -138,7 +144,7 @@ export default function HomeScreen() {
         <View className="mb-6 gap-3">
           {/* 총 지출 */}
           <View className="rounded-3xl bg-gradient-to-br from-primary to-primary/80 p-6 shadow-lg">
-            <Text className="text-sm text-white/80 font-medium mb-1">{isEn ? 'Total Spending' : '총 지출'}</Text>
+            <Text className="text-sm text-white/80 font-medium mb-1">{isEn ? 'Total Spending (This Month)' : '총 지출 (이번 달)'}</Text>
             <Text className="text-4xl font-bold text-white">
               {formatCurrencyAmount(totalAmount, settings.selectedCurrency)}
             </Text>

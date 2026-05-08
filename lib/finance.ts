@@ -1,3 +1,5 @@
+import { COUNTRY_CONFIGS, Currency } from '@/types';
+
 export type CategoryId = 'food' | 'transport' | 'housing' | 'study' | 'shopping' | 'health' | 'transfer' | 'other';
 
 export type Category = {
@@ -226,8 +228,9 @@ export function analyzeExchangeTiming(series: ExchangePoint[], sendAmountForeign
 }
 
 export function convertToKrw(amount: number, currency: string) {
-  const rates: Record<string, number> = { KRW: 1, USD: 1355, EUR: 1460, GBP: 1710, JPY: 9.1, CAD: 990, AUD: 890 };
-  return amount * (rates[currency] ?? 1);
+  if (currency === 'KRW') return amount;
+  const rate = COUNTRY_CONFIGS[currency as Currency]?.exchangeRate ?? 1;
+  return amount * rate;
 }
 
 function normalizeCurrency(input?: string) {
