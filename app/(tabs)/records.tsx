@@ -12,6 +12,7 @@ import { processExcelFile } from '@/lib/excel-parser';
 import { useSettings } from '@/hooks/useSettings';
 import { COUNTRY_CONFIGS } from '@/types';
 
+
 type FilterMode = 'all' | 'date' | 'category';
 
 export default function RecordsScreen() {
@@ -24,6 +25,7 @@ export default function RecordsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [inputText, setInputText] = useState('');
   const [activeTab, setActiveTab] = useState<'manual' | 'receipt' | 'excel'>('manual');
+
 
   const exchangeRatesByCurrency = useMemo(
     () => ({
@@ -47,6 +49,7 @@ export default function RecordsScreen() {
 
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, selectedCategory, searchText]);
+
 
   const convertAmount = useCallback(
     (amount: number, fromCurrency: string, toCurrency: string) => {
@@ -84,6 +87,7 @@ export default function RecordsScreen() {
     [isEn],
   );
 
+
   const handleAddManual = useCallback(() => {
     if (inputText.trim()) {
       addNotification(inputText);
@@ -107,10 +111,12 @@ export default function RecordsScreen() {
         setModalVisible(false);
       }
     } catch (error) {
+
       alert(isEn ? 'Failed to process receipt.' : '영수증 처리 중 오류가 발생했습니다.');
       console.error('Receipt processing error:', error);
     }
   }, [addNotification, isEn]);
+
 
   const handlePickExcel = useCallback(async () => {
     try {
@@ -233,7 +239,6 @@ export default function RecordsScreen() {
             })}
           </View>
         )}
-
           </View>
         </ScrollView>
 

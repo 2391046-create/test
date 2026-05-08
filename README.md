@@ -40,6 +40,9 @@ XRPL_Project2/
 
 서버가 **3개** 있어. 전부 따로 터미널 열어서 실행해야 해.
 
+도커(DB) + 서버 총 3개 실행 필요.
+전부 따로 터미널 열어서 실행
+
 ---
 
 ### 1. PostgreSQL DB (Docker)
@@ -61,6 +64,12 @@ docker-compose up -d
 ```bash
 cd backend
 
+<<<<<<< HEAD
+=======
+# FastAPI 설
+pip install uvicorn fastapi
+
+>>>>>>> main
 # 가상환경 생성 및 활성화
 python -m venv venv
 
@@ -79,6 +88,11 @@ cp .env.example .env
 
 #### `.env` 파일 수정
 
+<<<<<<< HEAD
+=======
+** .env 파일은 공유해드리는 파일을 받아 /Backend에 넣어주시면 됩니다 아래설명은 직접 seed,key 발급시 참고 **
+
+>>>>>>> main
 ```
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:15432/livingfund
 XRPL_TESTNET_URL=https://s.altnet.rippletest.net:51234
@@ -106,7 +120,11 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
+<<<<<<< HEAD
 ### 3. tRPC 서버 + Expo 앱
+=======
+### 3. tRPC 서버 + Expo 앱 서버 실행
+>>>>>>> main
 
 ```bash
 # 프로젝트 루트에서

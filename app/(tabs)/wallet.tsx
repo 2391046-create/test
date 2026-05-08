@@ -74,6 +74,7 @@ export default function WalletScreen() {
         amount: chargeAmount,
         currency: chargeCurrency,
       });
+
       Alert.alert(isEn ? 'Success' : '성공', isEn ? `${chargeAmount} ${chargeCurrency} charge completed` : `${chargeAmount} ${chargeCurrency} 충전이 완료되었습니다`);
       setSenderSeed('');
       setChargeAmount('');
@@ -148,6 +149,7 @@ export default function WalletScreen() {
         {/* 헤더 */}
         <View className="gap-1 mb-4">
           <Text className="text-3xl font-bold text-foreground">{isEn ? 'XRPL Wallet' : 'XRPL 지갑'}</Text>
+
           <Text className="text-xs text-muted font-mono" numberOfLines={1} ellipsizeMode="middle">
             {settings.xrplAddress}
           </Text>

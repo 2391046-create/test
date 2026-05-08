@@ -18,6 +18,7 @@ export const COUNTRY_CONFIGS: Record<Currency, CountryConfig> = {
     exchangeRate: 1,
     flag: "🇰🇷",
   },
+
   USD: {
     code: "US",
     name: "미국",

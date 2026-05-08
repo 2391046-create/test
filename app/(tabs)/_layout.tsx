@@ -15,6 +15,7 @@ export default function TabLayout() {
   const tabBarHeight = 62 + bottomPadding;
   const isEn = settings.language === 'en';
 
+
   return (
     <Tabs
       screenOptions={{
@@ -33,6 +34,7 @@ export default function TabLayout() {
         },
       }}
     >
+
       <Tabs.Screen name="index" options={{ title: isEn ? 'Home' : '홈', tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} /> }} />
       <Tabs.Screen name="records" options={{ title: isEn ? 'Records' : '기록', tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.bullet.rectangle.fill" color={color} /> }} />
       <Tabs.Screen name="receipt-scanner" options={{ title: isEn ? 'Receipt' : '영수증', tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.image.fill" color={color} /> }} />

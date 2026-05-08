@@ -7,7 +7,10 @@ import { useState } from "react";
 export default function MenuScannerScreen() {
   const { isLoading, error, result, pickImage, takePhoto, analyzeMenu, analyzeMenuText, clearResult } = useMenuScanner();
   const { settings } = useSettings();
+<<<<<<< HEAD
   const isEn = settings.language === "en";
+=======
+>>>>>>> main
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [menuText, setMenuText] = useState("");
   const [showTextInput, setShowTextInput] = useState(false);
@@ -19,7 +22,11 @@ export default function MenuScannerScreen() {
       try {
         await analyzeMenu(imageUri, settings.selectedCurrency, settings.backendUrl);
       } catch (err) {
+<<<<<<< HEAD
         Alert.alert(isEn ? "Error" : "오류", isEn ? "Failed to analyze menu" : "메뉴판 분석 실패");
+=======
+        Alert.alert("오류", "메뉴판 분석 실패");
+>>>>>>> main
       }
     }
   };
@@ -31,20 +38,32 @@ export default function MenuScannerScreen() {
       try {
         await analyzeMenu(imageUri, settings.selectedCurrency, settings.backendUrl);
       } catch (err) {
+<<<<<<< HEAD
         Alert.alert(isEn ? "Error" : "오류", isEn ? "Failed to analyze menu" : "메뉴판 분석 실패");
+=======
+        Alert.alert("오류", "메뉴판 분석 실패");
+>>>>>>> main
       }
     }
   };
 
   const handleAnalyzeText = async () => {
     if (!menuText.trim()) {
+<<<<<<< HEAD
       Alert.alert(isEn ? "Error" : "오류", isEn ? "Please enter menu text" : "메뉴 정보를 입력해주세요");
+=======
+      Alert.alert("오류", "메뉴 정보를 입력해주세요");
+>>>>>>> main
       return;
     }
     try {
       await analyzeMenuText(menuText, settings.selectedCurrency, settings.backendUrl);
     } catch (err) {
+<<<<<<< HEAD
       Alert.alert(isEn ? "Error" : "오류", isEn ? "Failed to analyze menu" : "메뉴판 분석 실패");
+=======
+      Alert.alert("오류", "메뉴판 분석 실패");
+>>>>>>> main
     }
   };
 
@@ -69,13 +88,22 @@ export default function MenuScannerScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="gap-6">
         {/* 헤더 */}
         <View className="gap-2">
+<<<<<<< HEAD
           <Text className="text-3xl font-bold text-foreground">{isEn ? "Menu Scanner" : "메뉴판 스캔"}</Text>
           <Text className="text-sm text-muted">{isEn ? "Analyze prices and compare with averages" : "가격을 분석하고 평균가와 비교"}</Text>
+=======
+          <Text className="text-3xl font-bold text-foreground">메뉴판 스캔</Text>
+          <Text className="text-sm text-muted">가격을 분석하고 평균가와 비교</Text>
+>>>>>>> main
         </View>
 
         {/* 현재 통화 설정 */}
         <View className="p-4 bg-surface rounded-lg border border-border">
+<<<<<<< HEAD
           <Text className="text-sm text-muted">{isEn ? "Current currency" : "현재 통화 설정"}</Text>
+=======
+          <Text className="text-sm text-muted">현재 통화 설정</Text>
+>>>>>>> main
           <Text className="text-2xl font-bold text-foreground mt-1">
             {settings.selectedCountry} ({settings.selectedCurrency})
           </Text>
@@ -92,7 +120,11 @@ export default function MenuScannerScreen() {
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
+<<<<<<< HEAD
                 <Text className="text-center font-semibold text-background">{isEn ? "📷 Take photo" : "📷 카메라로 촬영"}</Text>
+=======
+                <Text className="text-center font-semibold text-background">📷 카메라로 촬영</Text>
+>>>>>>> main
               )}
             </TouchableOpacity>
 
@@ -101,14 +133,22 @@ export default function MenuScannerScreen() {
               disabled={isLoading}
               className="p-4 bg-surface border border-border rounded-lg"
             >
+<<<<<<< HEAD
               <Text className="text-center font-semibold text-foreground">{isEn ? "🖼️ Choose from gallery" : "🖼️ 갤러리에서 선택"}</Text>
+=======
+              <Text className="text-center font-semibold text-foreground">🖼️ 갤러리에서 선택</Text>
+>>>>>>> main
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setShowTextInput(true)}
               className="p-4 bg-surface border border-border rounded-lg"
             >
+<<<<<<< HEAD
               <Text className="text-center font-semibold text-foreground">{isEn ? "📝 Enter text" : "📝 텍스트 입력"}</Text>
+=======
+              <Text className="text-center font-semibold text-foreground">📝 텍스트 입력</Text>
+>>>>>>> main
             </TouchableOpacity>
           </View>
         )}
@@ -119,7 +159,11 @@ export default function MenuScannerScreen() {
             <TextInput
               value={menuText}
               onChangeText={setMenuText}
+<<<<<<< HEAD
               placeholder={isEn ? "Enter menu and prices\nex: Coffee 5.50, Burger 12.00" : "메뉴명과 가격을 입력해주세요\n예: 커피 5.50, 버거 12.00"}
+=======
+              placeholder="메뉴명과 가격을 입력해주세요&#10;예: 커피 5.50, 버거 12.00"
+>>>>>>> main
               multiline
               numberOfLines={4}
               className="p-4 bg-surface border border-border rounded-lg text-foreground"
@@ -135,7 +179,11 @@ export default function MenuScannerScreen() {
                 {isLoading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
+<<<<<<< HEAD
                   <Text className="text-center font-semibold text-background">{isEn ? "Analyze" : "분석"}</Text>
+=======
+                  <Text className="text-center font-semibold text-background">분석</Text>
+>>>>>>> main
                 )}
               </TouchableOpacity>
 
@@ -143,7 +191,11 @@ export default function MenuScannerScreen() {
                 onPress={() => setShowTextInput(false)}
                 className="flex-1 p-4 bg-surface border border-border rounded-lg"
               >
+<<<<<<< HEAD
                 <Text className="text-center font-semibold text-foreground">{isEn ? "Cancel" : "취소"}</Text>
+=======
+                <Text className="text-center font-semibold text-foreground">취소</Text>
+>>>>>>> main
               </TouchableOpacity>
             </View>
           </View>
@@ -161,13 +213,21 @@ export default function MenuScannerScreen() {
           <View className="gap-4">
             {/* 레스토랑명 */}
             <View className="p-4 bg-surface rounded-lg border border-border">
+<<<<<<< HEAD
               <Text className="text-sm text-muted">{isEn ? "Restaurant" : "레스토랑"}</Text>
+=======
+              <Text className="text-sm text-muted">레스토랑</Text>
+>>>>>>> main
               <Text className="text-xl font-bold text-foreground mt-1">{result.restaurant_name}</Text>
             </View>
 
             {/* 메뉴 항목 */}
             <View className="gap-3">
+<<<<<<< HEAD
               <Text className="text-lg font-semibold text-foreground">{isEn ? "Menu & Prices" : "메뉴 및 가격"}</Text>
+=======
+              <Text className="text-lg font-semibold text-foreground">메뉴 및 가격</Text>
+>>>>>>> main
 
               {result.menu_items.map((item, index) => {
                 const comparison = getPriceComparison(item.price_comparison);
@@ -210,11 +270,19 @@ export default function MenuScannerScreen() {
             {/* 액션 버튼 */}
             <View className="gap-2">
               <TouchableOpacity className="p-4 bg-primary rounded-lg">
+<<<<<<< HEAD
                   <Text className="text-center font-semibold text-background">{isEn ? "💾 Save" : "💾 저장하기"}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={handleClear} className="p-4 bg-surface border border-border rounded-lg">
                 <Text className="text-center font-semibold text-foreground">{isEn ? "Scan again" : "다시 스캔"}</Text>
+=======
+                <Text className="text-center font-semibold text-background">💾 저장하기</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleClear} className="p-4 bg-surface border border-border rounded-lg">
+                <Text className="text-center font-semibold text-foreground">다시 스캔</Text>
+>>>>>>> main
               </TouchableOpacity>
             </View>
           </View>

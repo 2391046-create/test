@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, setCurrency, setLanguage } = useSettings();
+
   const [backendUrl, setBackendUrl] = useState(settings.backendUrl);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
   const handleCurrencyChange = async (currency: Currency) => {
     await setCurrency(currency);
   };
+
 
   const handleLanguageChange = async (language: Language) => {
     await setLanguage(language);
@@ -83,6 +85,7 @@ export default function SettingsScreen() {
 
         {/* 국가/통화 선택 */}
         <View className="gap-3">
+
           <Text className="text-lg font-semibold text-foreground">{isEn ? 'Country & Currency' : '국가 및 통화'}</Text>
           <Text className="text-sm text-muted">
             {isEn ? 'Current' : '현재 선택'}: {settings.selectedCountry} ({settings.selectedCurrency})
@@ -135,7 +138,6 @@ export default function SettingsScreen() {
         {/* XRPL 지갑 설정 */}
         <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
           <Text className="text-lg font-semibold text-foreground">{isEn ? 'XRPL Wallet' : 'XRPL 지갑 설정'}</Text>
-
           {settings.xrplAddress ? (
             <View className="gap-3">
               <View className="p-3 bg-background rounded-lg border border-border">
@@ -160,6 +162,7 @@ export default function SettingsScreen() {
                   value={userName}
                   onChangeText={setUserName}
                   placeholder={isEn ? 'John Doe' : '홍길동'}
+
                   className="p-3 bg-background border border-border rounded-lg text-foreground"
                   placeholderTextColor="#9BA1A6"
                 />
@@ -194,6 +197,7 @@ export default function SettingsScreen() {
               >
                 {creatingWallet && <ActivityIndicator size="small" color="#fff" />}
                 <Text className="text-center font-semibold text-background">
+
                   {isEn ? (creatingWallet ? 'Creating wallet... (15~30s)' : 'Create XRPL Wallet') : (creatingWallet ? '지갑 생성 중... (15~30초)' : 'XRPL 지갑 생성')}
                 </Text>
               </TouchableOpacity>
@@ -228,6 +232,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={async () => {
               await updateSettings({ backendUrl });
+
               Alert.alert(isEn ? 'Success' : '성공', isEn ? 'Saved.' : '저장되었습니다');
             }}
             className="p-3 bg-primary rounded-lg"

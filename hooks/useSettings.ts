@@ -4,6 +4,7 @@ import { AppSettings, Currency, COUNTRY_CONFIGS, Language } from "@/types";
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: "ko",
+
   selectedCurrency: "USD",
   selectedCountry: "미국",
   backendUrl: "http://localhost:8000",
@@ -26,6 +27,7 @@ export function useSettings() {
     loadSettings();
   }, []);
 
+
   useEffect(() => {
     const listener = (nextSettings: AppSettings) => {
       setSettings(nextSettings);
@@ -44,6 +46,7 @@ export function useSettings() {
         const merged: AppSettings = { ...DEFAULT_SETTINGS, ...parsed };
         setSettings(merged);
         notifySettingsListeners(merged);
+
       }
       setIsLoading(false);
     } catch (error) {
@@ -58,6 +61,7 @@ export function useSettings() {
       setSettings(updated);
       notifySettingsListeners(updated);
       await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+
     } catch (error) {
       console.error("설정 저장 실패:", error);
     }
