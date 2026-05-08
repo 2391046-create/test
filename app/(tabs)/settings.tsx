@@ -66,6 +66,10 @@ export default function SettingsScreen() {
   const handleOpenRules = () => {
     router.push('/(tabs)/rules');
   };
+
+  const handleOpenReport = () => {
+    router.push('/(tabs)/report');
+  };
   
 
   return (
@@ -233,16 +237,14 @@ export default function SettingsScreen() {
         </View>
 
 
-       {/* 분류 규칙 */}
-       <TouchableOpacity
-          onPress={handleOpenRules}
-          className="gap-2 p-4 bg-surface rounded-lg border border-border active:opacity-80"
-        >
-          <Text className="text-sm font-semibold text-foreground">{isEn ? 'Classification Rules' : '분류 규칙'}</Text>
-          <Text className="text-xs text-muted">{isEn ? 'Manage auto-categorization rules for payment notifications' : '결제 알림 자동 분류 규칙을 관리합니다'}</Text>
-          <Text className="text-xs text-primary font-semibold mt-1">{isEn ? 'Open rules manager →' : '규칙 관리 열기 →'}</Text>
-        </TouchableOpacity>
-
+        {/* Report */}
+        <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
+          <Text className="text-lg font-semibold text-foreground">{isEn ? 'Report' : '리포트'}</Text>
+          <Text className="text-xs text-muted">{isEn ? 'Open categorized expense summary' : '카테고리별 지출 요약 페이지로 이동'}</Text>
+          <TouchableOpacity onPress={handleOpenReport} className="p-3 bg-primary rounded-lg">
+            <Text className="text-center font-semibold text-background">{isEn ? 'Go to report' : '리포트 열기'}</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Language */}
         <View className="gap-3 p-4 bg-surface rounded-lg border border-border">
