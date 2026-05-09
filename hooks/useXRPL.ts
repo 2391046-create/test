@@ -15,7 +15,7 @@ export function useXRPL() {
     setError(null);
 
     try {
-      const response = await fetch(`${backendUrl}/record-xrpl`, {
+      const response = await fetch(`${backendUrl}/api/expenses/record`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,7 +55,7 @@ export function useXRPL() {
     setError(null);
 
     try {
-      const response = await fetch(`${backendUrl}/xrpl/transaction-info`, {
+      const response = await fetch(`${backendUrl}/api/expenses/transaction-info`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

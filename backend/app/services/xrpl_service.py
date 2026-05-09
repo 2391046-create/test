@@ -341,3 +341,45 @@ async def path_payment(
         _path_payment_sync,
         sender_seed, from_currency, from_max, to_currency, to_amount, issuer, slippage_pct,
     )
+
+
+def _record_transaction_with_memo_sync(seed: str, expense_data: dict) -> dict:
+    """지출 내역을 XRPL 자체 송금 트랜잭션의 Memo에 기록"""
+    import json
+    try:
+        client = _get_client()
+        wallet = Wallet.from_seed(seed)
+
+        # 지출 데이터를 JSON으로 변환
+        memo_json = json.dumps(expense_data, ensure_ascii=False)
+        hex_data = binascii.hexlify(memo_json.encode("utf-8")).decode().upper()
+
+        # 자체 송금 (1 drop XRP)
+        payment = Payment(
+            account=wallet.address,
+            destination=wallet.address,
+            amount=xrp_to_drops(Decimal("0.000001")),
+            memos=[Memo(memo_data=hex_data)],
+        )
+
+        response = submit_and_wait(payment, client, wallet)
+        tx_result = response.result.get("meta", {}).get("TransactionResult", "")
+
+        return {
+            "success": tx_result == "tesSUCCESS",
+            "tx_hash": response.result.get("hash", ""),
+            "status": "success" if tx_result == "tesSUCCESS" else "failed",
+            "memo_data": expense_data,
+            "ledger_index": response.result.get("ledger_index"),
+            "account": wallet.address,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def record_transaction_with_memo(seed: str, expense_data: dict) -> dict:
+    """지출 내역을 XRPL Memo에 기록 (async)"""
+    return await asyncio.to_thread(_record_transaction_with_memo_sync, seed, expense_data)

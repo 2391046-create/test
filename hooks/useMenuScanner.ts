@@ -72,7 +72,7 @@ export function useMenuScanner() {
           try {
             const base64 = (reader.result as string).split(",")[1];
 
-            const apiResponse = await fetch(`${backendUrl}/analyze-price`, {
+            const apiResponse = await fetch(`${backendUrl}/api/scanner/price`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -126,7 +126,7 @@ export function useMenuScanner() {
     setError(null);
 
     try {
-      const apiResponse = await fetch(`${backendUrl}/analyze-price`, {
+      const apiResponse = await fetch(`${backendUrl}/api/scanner/price`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -83,6 +83,42 @@ export function useDutchPay() {
     setTotalAmount(0);
   };
 
+  const recordDutchPayToXRPL = async (
+    merchant: string,
+    currency: string,
+    walletSeed: string,
+    backendUrl: string
+  ): Promise<DutchPayResult> => {
+    try {
+      const memberNames = members.map((m) => m.name);
+      const response = await fetch(`${backendUrl}/api/expenses/dutch-pay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          merchant,
+          total_amount: totalAmount,
+          currency,
+          members: memberNames,
+          wallet_seed: walletSeed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("더치페이 기록 실패");
+      }
+
+      const data = await response.json();
+      return data as DutchPayResult;
+    } catch (err) {
+      return {
+        success: false,
+        error: String(err),
+      };
+    }
+  };
+
   return {
     members,
     totalAmount,
@@ -91,6 +127,15 @@ export function useDutchPay() {
     updateMemberPaid,
     setTotal,
     calculateSettlement,
+    recordDutchPayToXRPL,
     reset,
   };
+}
+
+
+export interface DutchPayResult {
+  success: boolean;
+  tx_hash?: string;
+  memo_data?: any;
+  error?: string;
 }

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_tables
-from app.routers import users, wallets, transactions
+from app.routers import users, wallets, transactions, scanner, expense_records
 
 
 @asynccontextmanager
@@ -30,6 +30,8 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(wallets.router)
 app.include_router(transactions.router)
+app.include_router(scanner.router)
+app.include_router(expense_records.router)
 
 
 @app.get("/health")

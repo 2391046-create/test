@@ -74,7 +74,7 @@ export function useReceiptScanner() {
             const base64 = (reader.result as string).split(",")[1];
 
             // 백엔드 API 호출
-            const apiResponse = await fetch(`${backendUrl}/scan-receipt`, {
+            const apiResponse = await fetch(`${backendUrl}/api/scanner/receipt`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
