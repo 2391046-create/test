@@ -1,20 +1,47 @@
 import { ScrollView, Text, View, TouchableOpacity, Pressable, FlatList } from 'react-native';
 import { router } from 'expo-router';
+<<<<<<< HEAD
+import { useCallback, useEffect, useMemo, useState } from 'react';
+=======
 import { useCallback, useEffect, useState } from 'react';
+>>>>>>> main
 
 import { ScreenContainer } from '@/components/screen-container';
 import { useFinance } from '@/lib/finance-context';
 import { useRules } from '@/lib/rules-context';
+<<<<<<< HEAD
+import { categories, Transaction } from '@/lib/finance';
+import { setupNotificationListener, requestNotificationPermissions } from '@/lib/notification-handler';
+import { useSettings } from '@/hooks/useSettings';
+import { COUNTRY_CONFIGS } from '@/types';
+=======
 import { categories, summarizeByCategory, Transaction } from '@/lib/finance';
 import { setupNotificationListener, requestNotificationPermissions } from '@/lib/notification-handler';
+>>>>>>> main
 
 export default function HomeScreen() {
   const { transactions, addNotification } = useFinance();
   const { rules } = useRules();
+<<<<<<< HEAD
+  const { settings } = useSettings();
+  const isEn = settings.language === 'en';
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [notificationPermission, setNotificationPermission] = useState(false);
+
+  const exchangeRatesByCurrency = useMemo(
+    () => ({
+      KRW: 1,
+      ...Object.fromEntries(Object.entries(COUNTRY_CONFIGS).map(([currency, config]) => [currency, config.exchangeRate])),
+    }),
+    [],
+  );
+
+=======
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState(summarizeByCategory(transactions));
   const [notificationPermission, setNotificationPermission] = useState(false);
 
+>>>>>>> main
   // 알림 권한 요청 및 리스너 설정
   useEffect(() => {
     const initNotifications = async () => {
@@ -38,12 +65,17 @@ export default function HomeScreen() {
   // 최근 거래 업데이트
   useEffect(() => {
     setRecentTransactions(transactions.slice(0, 5));
+<<<<<<< HEAD
+  }, [transactions]);
+
+=======
     setSummary(summarizeByCategory(transactions));
   }, [transactions]);
 
   const totalAmount = summary.reduce((sum, item) => sum + item.amount, 0);
   const topCategory = summary.length > 0 ? summary.reduce((max, item) => (item.amount > max.amount ? item : max)) : null;
 
+>>>>>>> main
   const handleAddNotification = useCallback(() => {
     router.push('/(tabs)/records');
   }, []);
@@ -64,22 +96,97 @@ export default function HomeScreen() {
     router.push('/(tabs)/dutch-pay');
   }, []);
 
+<<<<<<< HEAD
+  const convertAmount = useCallback(
+    (amount: number, fromCurrency: string, toCurrency: string) => {
+      const fromRate = exchangeRatesByCurrency[fromCurrency as keyof typeof exchangeRatesByCurrency] ?? 1300;
+      const toRate = exchangeRatesByCurrency[toCurrency as keyof typeof exchangeRatesByCurrency] ?? 1300;
+      const amountInKrw = amount * fromRate;
+      return amountInKrw / toRate;
+    },
+    [exchangeRatesByCurrency],
+  );
+
+  const formatCurrencyAmount = useCallback((amount: number, currency: string) => {
+    const useFraction = !['KRW', 'JPY'].includes(currency);
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: useFraction ? 2 : 0,
+      maximumFractionDigits: useFraction ? 2 : 0,
+    });
+  }, []);
+
+  const getCategoryLabel = useCallback(
+    (id: string, fallback: string) => {
+      if (!isEn) return fallback;
+      const map: Record<string, string> = {
+        food: 'Food',
+        transport: 'Transport',
+        housing: 'Housing',
+        study: 'Study',
+        shopping: 'Shopping',
+        health: 'Health',
+        transfer: 'Transfer',
+        other: 'Other',
+      };
+      return map[id] ?? fallback;
+    },
+    [isEn],
+  );
+
+  const summary = useMemo(
+    () =>
+      categories
+        .map((category) => {
+          const items = transactions.filter((tx) => {
+            if (tx.category !== category.id) return false;
+            const parsed = new Date(tx.date);
+            if (Number.isNaN(parsed.getTime())) return false;
+            const now = new Date();
+            return parsed.getFullYear() === now.getFullYear() && parsed.getMonth() === now.getMonth();
+          });
+          const amount = items.reduce(
+            (sum, tx) => sum + convertAmount(tx.amount, tx.currency, settings.selectedCurrency),
+            0,
+          );
+          return { category, amount, count: items.length };
+        })
+        .filter((row) => row.count > 0),
+    [transactions, convertAmount, settings.selectedCurrency],
+  );
+
+  const totalAmount = summary.reduce((sum, item) => sum + item.amount, 0);
+  const topCategory = summary.length > 0 ? summary.reduce((max, item) => (item.amount > max.amount ? item : max)) : null;
+
+=======
+>>>>>>> main
   return (
     <ScreenContainer className="px-5 pt-4">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
         {/* 헤더 */}
         <View className="mb-6">
           <Text className="text-3xl font-bold text-foreground leading-10">Finance Compass</Text>
+<<<<<<< HEAD
+          <Text className="text-sm text-muted mt-1">{isEn ? 'Student finance, transparent and simple' : '유학생 금융 관리, 투명하고 편리하게'}</Text>
+=======
           <Text className="text-sm text-muted mt-1">유학생 금융 관리, 투명하고 편리하게</Text>
+>>>>>>> main
         </View>
 
         {/* 주요 통계 카드 */}
         <View className="mb-6 gap-3">
           {/* 총 지출 */}
           <View className="rounded-3xl bg-gradient-to-br from-primary to-primary/80 p-6 shadow-lg">
+<<<<<<< HEAD
+            <Text className="text-sm text-white/80 font-medium mb-1">{isEn ? 'Total Spending (This Month)' : '총 지출 (이번 달)'}</Text>
+            <Text className="text-4xl font-bold text-white">
+              {formatCurrencyAmount(totalAmount, settings.selectedCurrency)}
+            </Text>
+            <Text className="text-xs text-white/70 mt-2">{settings.selectedCurrency} {isEn ? 'base' : '기준'}</Text>
+=======
             <Text className="text-sm text-white/80 font-medium mb-1">총 지출</Text>
             <Text className="text-4xl font-bold text-white">{totalAmount.toLocaleString('ko-KR')}</Text>
             <Text className="text-xs text-white/70 mt-2">₩ KRW 기준</Text>
+>>>>>>> main
           </View>
 
           {/* 상위 카테고리 */}
@@ -87,9 +194,17 @@ export default function HomeScreen() {
             <View className="rounded-3xl bg-surface border border-border p-6">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
+<<<<<<< HEAD
+                  <Text className="text-sm text-muted font-medium mb-1">{isEn ? 'Top Spending Category' : '가장 많은 지출'}</Text>
+                  <Text className="text-2xl font-bold text-foreground">{getCategoryLabel(topCategory.category.id, topCategory.category.label)}</Text>
+                  <Text className="text-xs text-muted mt-1">
+                    {topCategory.count}{isEn ? ' tx' : '건'} · {formatCurrencyAmount(topCategory.amount, settings.selectedCurrency)} {settings.selectedCurrency}
+                  </Text>
+=======
                   <Text className="text-sm text-muted font-medium mb-1">가장 많은 지출</Text>
                   <Text className="text-2xl font-bold text-foreground">{topCategory.category.label}</Text>
                   <Text className="text-xs text-muted mt-1">{topCategory.count}건 · {topCategory.amount.toLocaleString('ko-KR')}원</Text>
+>>>>>>> main
                 </View>
                 <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: topCategory.category.tone + '20' }}>
                   <Text className="text-2xl">{getCategoryEmoji(topCategory.category.id)}</Text>
@@ -105,8 +220,13 @@ export default function HomeScreen() {
             <View className="flex-row items-center gap-3">
               <Text className="text-2xl">📄</Text>
               <View>
+<<<<<<< HEAD
+                <Text className="text-sm font-bold text-primary">{isEn ? 'Receipt Scan' : '영수증 스캔'}</Text>
+                <Text className="text-xs text-muted">{isEn ? 'Auto analyze multilingual receipts' : '다국 영수증 자동 분석'}</Text>
+=======
                 <Text className="text-sm font-bold text-primary">영수증 스캔</Text>
                 <Text className="text-xs text-muted">다국 영수증 자동 분석</Text>
+>>>>>>> main
               </View>
             </View>
             <Text className="text-primary text-lg">→</Text>
@@ -116,8 +236,13 @@ export default function HomeScreen() {
             <View className="flex-row items-center gap-3">
               <Text className="text-2xl">🍽️</Text>
               <View>
+<<<<<<< HEAD
+                <Text className="text-sm font-bold text-primary">{isEn ? 'Price Analysis' : '가격 분석'}</Text>
+                <Text className="text-xs text-muted">{isEn ? 'Scan menu and compare averages' : '메뉴판 스캔 및 평균가 비교'}</Text>
+=======
                 <Text className="text-sm font-bold text-primary">가격 분석</Text>
                 <Text className="text-xs text-muted">메뉴판 스캔 및 평균가 비교</Text>
+>>>>>>> main
               </View>
             </View>
             <Text className="text-primary text-lg">→</Text>
@@ -127,8 +252,13 @@ export default function HomeScreen() {
             <View className="flex-row items-center gap-3">
               <Text className="text-2xl">👥</Text>
               <View>
+<<<<<<< HEAD
+                <Text className="text-sm font-bold text-primary">{isEn ? 'Split Bill' : '더치페이'}</Text>
+                <Text className="text-xs text-muted">{isEn ? 'Automatic settlement' : '자동 정산 계산'}</Text>
+=======
                 <Text className="text-sm font-bold text-primary">더치페이</Text>
                 <Text className="text-xs text-muted">자동 정산 계산</Text>
+>>>>>>> main
               </View>
             </View>
             <Text className="text-primary text-lg">→</Text>
@@ -138,8 +268,13 @@ export default function HomeScreen() {
             <View className="flex-row items-center gap-3">
               <Text className="text-2xl">📝</Text>
               <View>
+<<<<<<< HEAD
+                <Text className="text-sm font-bold text-foreground">{isEn ? 'Add Transaction' : '거래 추가'}</Text>
+                <Text className="text-xs text-muted">{isEn ? 'Paste notification text' : '알림 텍스트 붙여넣기'}</Text>
+=======
                 <Text className="text-sm font-bold text-foreground">거래 추가</Text>
                 <Text className="text-xs text-muted">알림 텍스트 붙여넣기</Text>
+>>>>>>> main
               </View>
             </View>
             <Text className="text-muted text-lg">→</Text>
@@ -149,8 +284,13 @@ export default function HomeScreen() {
             <View className="flex-row items-center gap-3">
               <Text className="text-2xl">⚙️</Text>
               <View>
+<<<<<<< HEAD
+                <Text className="text-sm font-bold text-foreground">{isEn ? 'Rules' : '분류 규칙'}</Text>
+                <Text className="text-xs text-muted">{isEn ? 'Customize auto-categorization' : '자동 분류 커스터마이징'}</Text>
+=======
                 <Text className="text-sm font-bold text-foreground">분류 규칙</Text>
                 <Text className="text-xs text-muted">자동 분류 커스터마이징</Text>
+>>>>>>> main
               </View>
             </View>
             <Text className="text-muted text-lg">→</Text>
@@ -159,7 +299,11 @@ export default function HomeScreen() {
 
         {/* 카테고리별 지출 현황 */}
         <View className="mb-6">
+<<<<<<< HEAD
+          <Text className="text-lg font-bold text-foreground mb-3">{isEn ? 'Spending by Category' : '카테고리별 지출'}</Text>
+=======
           <Text className="text-lg font-bold text-foreground mb-3">카테고리별 지출</Text>
+>>>>>>> main
           <FlatList
             data={summary}
             keyExtractor={(item) => item.category.id}
@@ -171,9 +315,17 @@ export default function HomeScreen() {
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2 flex-1">
                       <Text className="text-lg">{getCategoryEmoji(item.category.id)}</Text>
+<<<<<<< HEAD
+                      <Text className="text-sm font-medium text-foreground flex-1">{getCategoryLabel(item.category.id, item.category.label)}</Text>
+                    </View>
+                    <Text className="text-sm font-bold text-foreground">
+                      {formatCurrencyAmount(item.amount, settings.selectedCurrency)} {settings.selectedCurrency}
+                    </Text>
+=======
                       <Text className="text-sm font-medium text-foreground flex-1">{item.category.label}</Text>
                     </View>
                     <Text className="text-sm font-bold text-foreground">{item.amount.toLocaleString('ko-KR')}원</Text>
+>>>>>>> main
                   </View>
                   <View className="h-2 bg-border rounded-full overflow-hidden">
                     <View className="h-full rounded-full" style={{ width: `${percentage}%`, backgroundColor: item.category.tone }} />
@@ -187,9 +339,15 @@ export default function HomeScreen() {
         {/* 최근 거래 */}
         <View>
           <View className="flex-row items-center justify-between mb-3">
+<<<<<<< HEAD
+            <Text className="text-lg font-bold text-foreground">{isEn ? 'Recent Transactions' : '최근 거래'}</Text>
+            <Pressable onPress={() => router.push('/(tabs)/records')} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+              <Text className="text-sm text-primary font-semibold">{isEn ? 'View all →' : '모두 보기 →'}</Text>
+=======
             <Text className="text-lg font-bold text-foreground">최근 거래</Text>
             <Pressable onPress={() => router.push('/(tabs)/records')} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
               <Text className="text-sm text-primary font-semibold">모두 보기 →</Text>
+>>>>>>> main
             </Pressable>
           </View>
           <FlatList
@@ -213,7 +371,16 @@ export default function HomeScreen() {
                       <Text className="text-xs text-muted">{item.date}</Text>
                     </View>
                   </View>
+<<<<<<< HEAD
+                  <View className="items-end">
+                    <Text className="text-sm font-bold text-foreground">
+                      {formatCurrencyAmount(convertAmount(item.amount, item.currency, settings.selectedCurrency), settings.selectedCurrency)}
+                    </Text>
+                    <Text className="text-xs text-muted mt-1">{settings.selectedCurrency}</Text>
+                  </View>
+=======
                   <Text className="text-sm font-bold text-foreground">{item.amount} {item.currency}</Text>
+>>>>>>> main
                 </Pressable>
               );
             }}

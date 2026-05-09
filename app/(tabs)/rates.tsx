@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
+<<<<<<< HEAD
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+=======
 import { Text, TouchableOpacity, View } from 'react-native';
+>>>>>>> main
 
 import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ExchangePoint, analyzeExchangeTiming, exchangeSeries } from '@/lib/finance';
+<<<<<<< HEAD
+import { useSettings } from '@/hooks/useSettings';
+=======
+>>>>>>> main
 
 type FrankfurterRate = {
   date: string;
@@ -22,16 +30,39 @@ function formatChartDate(date: string) {
 }
 
 export default function RatesScreen() {
+<<<<<<< HEAD
+  const { settings } = useSettings();
+  const selectedCurrency = settings.selectedCurrency;
+  const isEn = settings.language === 'en';
+  const [series, setSeries] = useState<ExchangePoint[]>(exchangeSeries);
+  const [sourceLabel, setSourceLabel] = useState(isEn ? 'Sample series' : '샘플 시계열');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (selectedCurrency === 'KRW') {
+      setSeries(exchangeSeries);
+      setSourceLabel(isEn ? 'Sample series for KRW mode' : 'KRW 선택 시 샘플 시계열');
+      setLoading(false);
+      return;
+    }
+
+=======
   const [series, setSeries] = useState<ExchangePoint[]>(exchangeSeries);
   const [sourceLabel, setSourceLabel] = useState('샘플 시계열');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+>>>>>>> main
     const controller = new AbortController();
     const to = new Date();
     const from = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
+<<<<<<< HEAD
+    setLoading(true);
+    fetch(`https://api.frankfurter.dev/v2/rates?from=${formatApiDate(from)}&to=${formatApiDate(to)}&base=${selectedCurrency}&quotes=KRW`, {
+=======
     fetch(`https://api.frankfurter.dev/v2/rates?from=${formatApiDate(from)}&to=${formatApiDate(to)}&base=USD&quotes=KRW`, {
+>>>>>>> main
       signal: controller.signal,
     })
       .then((response) => response.json())
@@ -42,20 +73,56 @@ export default function RatesScreen() {
           .map((item) => ({ date: formatChartDate(item.date), rate: item.rate }));
         if (nextSeries.length >= 3) {
           setSeries(nextSeries);
+<<<<<<< HEAD
+          setSourceLabel(`Frankfurter API (${selectedCurrency}/KRW)`);
+        }
+      })
+      .catch(() => {
+        setSourceLabel(isEn ? 'Fallback series (network)' : '네트워크 fallback 시계열');
+=======
           setSourceLabel('Frankfurter 공개 환율 API');
         }
       })
       .catch(() => {
         setSourceLabel('네트워크 fallback 시계열');
+>>>>>>> main
       })
       .finally(() => setLoading(false));
 
     return () => controller.abort();
+<<<<<<< HEAD
+  }, [selectedCurrency, isEn]);
+=======
   }, []);
+>>>>>>> main
 
   const recommendation = useMemo(() => analyzeExchangeTiming(series, 1000), [series]);
   const max = Math.max(...series.map((point) => point.rate));
   const min = Math.min(...series.map((point) => point.rate));
+<<<<<<< HEAD
+  const recommendationTitle = isEn
+    ? recommendation.action === 'send_now'
+      ? 'Send now'
+      : `Wait ${recommendation.waitDays} days`
+    : recommendation.title;
+  const recommendationReason = isEn
+    ? recommendation.action === 'send_now'
+      ? 'Current rate trend is favorable compared to recent average.'
+      : 'Short-term trend is not favorable enough yet. Monitor a little longer.'
+    : recommendation.reason;
+
+  return (
+    <ScreenContainer className="px-5 pt-2">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+      <View className="gap-5">
+        <View>
+          <Text className="text-3xl font-bold text-foreground leading-10">{isEn ? 'Exchange Timing' : '환율 타이밍'}</Text>
+          <Text className="text-sm text-muted leading-5">
+            {isEn
+              ? `Get a clear action based on 7-day trends when sending living costs from KRW to ${selectedCurrency}.`
+              : `KRW에서 ${selectedCurrency}로 생활비를 보낼 때, 7일 추세 기반으로 명확한 액션을 제시합니다.`}
+          </Text>
+=======
 
   return (
     <ScreenContainer className="px-5 pt-2">
@@ -63,25 +130,42 @@ export default function RatesScreen() {
         <View>
           <Text className="text-3xl font-bold text-foreground leading-10">환율 타이밍</Text>
           <Text className="text-sm text-muted leading-5">KRW에서 외화로 생활비를 보낼 때, 7일 추세 기반으로 명확한 액션을 제시합니다.</Text>
+>>>>>>> main
         </View>
 
         <View className={`rounded-[28px] p-5 gap-4 ${recommendation.action === 'send_now' ? 'bg-green-600' : 'bg-amber-500'}`}>
           <View className="flex-row items-center justify-between">
+<<<<<<< HEAD
+            <Text className="text-white/85 text-sm font-semibold">{isEn ? 'AI Recommendation' : 'AI 추천 액션'}</Text>
+            <IconSymbol name="paperplane.fill" color="#FFFFFF" size={30} />
+          </View>
+          <Text className="text-white text-4xl font-bold leading-[46px]">{recommendationTitle}</Text>
+          <Text className="text-white/90 text-sm leading-5">{recommendationReason}</Text>
+=======
             <Text className="text-white/85 text-sm font-semibold">AI 추천 액션</Text>
             <IconSymbol name="paperplane.fill" color="#FFFFFF" size={30} />
           </View>
           <Text className="text-white text-4xl font-bold leading-[46px]">{recommendation.title}</Text>
           <Text className="text-white/90 text-sm leading-5">{recommendation.reason}</Text>
+>>>>>>> main
         </View>
 
         <View className="rounded-3xl bg-surface border border-border p-5 gap-4">
           <View className="flex-row justify-between">
             <View>
+<<<<<<< HEAD
+              <Text className="text-xs text-muted">{isEn ? `Current ${selectedCurrency}` : `현재 ${selectedCurrency} 기준`}</Text>
+              <Text className="mt-1 text-2xl font-bold text-foreground">₩{recommendation.currentRate.toLocaleString('ko-KR')}</Text>
+            </View>
+            <View className="items-end">
+              <Text className="text-xs text-muted">{isEn ? '7-day avg' : '7일 평균'}</Text>
+=======
               <Text className="text-xs text-muted">현재 USD 기준</Text>
               <Text className="mt-1 text-2xl font-bold text-foreground">₩{recommendation.currentRate.toLocaleString('ko-KR')}</Text>
             </View>
             <View className="items-end">
               <Text className="text-xs text-muted">7일 평균</Text>
+>>>>>>> main
               <Text className="mt-1 text-2xl font-bold text-foreground">₩{Math.round(recommendation.movingAverage).toLocaleString('ko-KR')}</Text>
             </View>
           </View>
@@ -98,25 +182,49 @@ export default function RatesScreen() {
               );
             })}
           </View>
+<<<<<<< HEAD
+          <Text className="text-xs text-muted text-center">{loading ? (isEn ? 'Fetching latest rates' : '최신 환율 확인 중') : `${sourceLabel} ${isEn ? 'source' : '기준'}`}</Text>
+=======
           <Text className="text-xs text-muted text-center">{loading ? '최신 환율 확인 중' : `${sourceLabel} 기준`}</Text>
+>>>>>>> main
         </View>
 
         <View className="flex-row gap-3">
           <View className="flex-1 rounded-3xl bg-surface border border-border p-4">
+<<<<<<< HEAD
+            <Text className="text-xs text-muted">{isEn ? 'Expected Saving' : '예상 절감'}</Text>
+            <Text className="mt-2 text-xl font-bold text-foreground">₩{recommendation.expectedSavingKrw.toLocaleString('ko-KR')}</Text>
+          </View>
+          <View className="flex-1 rounded-3xl bg-surface border border-border p-4">
+            <Text className="text-xs text-muted">{isEn ? 'Recommendation Score' : '추천 점수'}</Text>
+=======
             <Text className="text-xs text-muted">예상 절감</Text>
             <Text className="mt-2 text-xl font-bold text-foreground">₩{recommendation.expectedSavingKrw.toLocaleString('ko-KR')}</Text>
           </View>
           <View className="flex-1 rounded-3xl bg-surface border border-border p-4">
             <Text className="text-xs text-muted">추천 점수</Text>
+>>>>>>> main
             <Text className="mt-2 text-xl font-bold text-foreground">{recommendation.score}</Text>
           </View>
         </View>
 
         <TouchableOpacity className="rounded-2xl bg-primary py-4 items-center active:opacity-80">
+<<<<<<< HEAD
+          <Text className="text-white font-bold">{isEn ? 'Schedule transfer alert' : '송금 알림 예약하기'}</Text>
+        </TouchableOpacity>
+        <Text className="text-xs text-muted leading-4 text-center">
+          {isEn
+            ? 'This button is for MVP demo. Real scheduling will be enabled once push notifications and user settings are integrated.'
+            : '현재 버튼은 MVP 시연용입니다. 실제 알림 예약은 운영 단계에서 푸시 알림과 사용자 설정이 연결될 때 활성화됩니다.'}
+        </Text>
+      </View>
+      </ScrollView>
+=======
           <Text className="text-white font-bold">송금 알림 예약하기</Text>
         </TouchableOpacity>
         <Text className="text-xs text-muted leading-4 text-center">현재 버튼은 MVP 시연용입니다. 실제 알림 예약은 운영 단계에서 푸시 알림과 사용자 설정이 연결될 때 활성화됩니다.</Text>
       </View>
+>>>>>>> main
     </ScreenContainer>
   );
 }

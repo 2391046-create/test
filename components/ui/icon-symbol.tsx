@@ -9,6 +9,7 @@ type IconSymbolName = keyof typeof MAPPING;
 const MAPPING = {
   'house.fill': 'home',
   'list.bullet.rectangle.fill': 'receipt-long',
+  'doc.text.image.fill': 'receipt-long',
   'chart.pie.fill': 'pie-chart',
   'chart.bar.fill': 'bar-chart',
   'chart.line.uptrend.xyaxis': 'show-chart',
@@ -18,6 +19,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'checkmark.seal.fill': 'verified',
   'bell.badge.fill': 'notifications',
+  'creditcard.fill': 'account-balance-wallet',
   'wallet.pass.fill': 'account-balance-wallet',
   'doc.text.fill': 'description',
 } as IconMapping;
