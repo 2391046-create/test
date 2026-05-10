@@ -1,12 +1,20 @@
+"""
+Gemini AI를 사용한 영수증 및 메뉴판 분석 서비스
+"""
 import google.generativeai as genai
 import base64
 import json
-import re
-from typing import Optional, Dict, Any, List
 import os
+from typing import Optional, Dict, Any
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Gemini API 설정
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY 환경 변수가 설정되지 않았습니다")
 
+genai.configure(api_key=GEMINI_API_KEY)
+
+# 환율 데이터
 EXCHANGE_RATES = {
     "USD": 1300,
     "JPY": 9.5,
@@ -20,261 +28,231 @@ EXCHANGE_RATES = {
     "HKD": 166,
 }
 
+# 평균 가격 데이터
 AVERAGE_PRICES = {
     "USD": {
-        "coffee": 5.50,
-        "burger": 12.00,
-        "pizza": 15.00,
-        "sushi": 18.00,
-        "salad": 10.00,
-        "pasta": 14.00,
-        "steak": 25.00,
-        "sandwich": 8.00,
-        "ramen": 10.00,
-        "chicken": 12.00,
+        "coffee": 5.50, "burger": 12.00, "pizza": 15.00, "sushi": 18.00,
+        "salad": 10.00, "pasta": 14.00, "steak": 25.00, "sandwich": 8.00,
+        "ramen": 10.00, "chicken": 12.00, "beer": 6.00, "wine": 10.00,
     },
     "JPY": {
-        "coffee": 500,
-        "burger": 1200,
-        "pizza": 1500,
-        "sushi": 2000,
-        "salad": 1000,
-        "pasta": 1400,
-        "steak": 3000,
-        "sandwich": 800,
-        "ramen": 900,
-        "chicken": 1200,
+        "coffee": 500, "burger": 1200, "pizza": 1500, "sushi": 2000,
+        "salad": 1000, "pasta": 1400, "steak": 3000, "sandwich": 800,
+        "ramen": 900, "chicken": 1200, "beer": 600, "wine": 1000,
     },
     "GBP": {
-        "coffee": 4.50,
-        "burger": 10.00,
-        "pizza": 12.00,
-        "sushi": 15.00,
-        "salad": 8.50,
-        "pasta": 11.00,
-        "steak": 20.00,
-        "sandwich": 6.50,
-        "ramen": 8.00,
-        "chicken": 10.00,
+        "coffee": 4.50, "burger": 10.00, "pizza": 12.00, "sushi": 15.00,
+        "salad": 8.50, "pasta": 11.00, "steak": 20.00, "sandwich": 6.50,
+        "ramen": 8.00, "chicken": 10.00, "beer": 5.00, "wine": 8.00,
     },
 }
 
-def get_exchange_rate(currency: str) -> float:
-    return EXCHANGE_RATES.get(currency, 1300)
 
-def get_average_price(currency: str, item_name: str) -> Optional[float]:
-    if currency not in AVERAGE_PRICES:
-        return None
-    
-    item_lower = item_name.lower()
-    prices = AVERAGE_PRICES[currency]
-    
-    for key, price in prices.items():
-        if key in item_lower or item_lower in key:
-            return price
-    
-    return None
-
-def extract_json_from_text(text: str) -> Dict[str, Any]:
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except json.JSONDecodeError:
-            pass
-    return {}
-
-def analyze_receipt(image_data: str, target_country: str = "USD") -> Dict[str, Any]:
+def analyze_receipt(image_base64: str, target_country: str = "USD") -> Dict[str, Any]:
     """
-    영수증 이미지 분석 - OCR 기능
-    상호명, 품목리스트, 현지통화 총합계, 원화 환산 금액, 더치페이 정산 추천 금액 포함
+    영수증 이미지 분석
+    - 상호명, 품목, 금액, 원화 환산, 더치페이 정산 정보 반환
     """
     try:
+        # Gemini 모델 선택
         model = genai.GenerativeModel("gemini-1.5-flash")
         
+        # Base64 이미지 디코딩
+        image_data = base64.b64decode(image_base64)
+        
+        # 프롬프트 작성
         prompt = f"""
-        Please analyze this receipt image and extract the following information in JSON format:
+당신은 영수증 분석 전문가입니다. 다음 영수증 이미지를 분석하고 JSON 형식으로 다음 정보를 반환하세요:
+
+1. merchant_name: 상호명
+2. items: 품목 리스트 (각 항목: name, price, quantity)
+3. total_local: 현지 통화 총합계
+4. currency: 통화 코드 (USD, JPY, GBP 등)
+5. date: 거래 날짜 (YYYY-MM-DD 형식)
+6. category: 거래 카테고리 (food, transport, shopping, entertainment, healthcare, education, utility, other)
+
+그리고 다음을 계산하세요:
+7. exchange_rate: 원화 환율 (기본값: {EXCHANGE_RATES.get(target_country, 1300)})
+8. total_krw: 원화 환산 금액
+9. dutch_pay_per_person: 3명이 나눌 경우의 1인당 금액
+
+응답은 반드시 유효한 JSON 형식이어야 합니다.
+"""
         
-        {{
-            "merchant_name": "Name of the store/restaurant",
-            "items": [
-                {{"name": "item name", "quantity": 1, "price": 0.00}},
-            ],
-            "subtotal": 0.00,
-            "tax": 0.00,
-            "total": 0.00,
-            "currency": "{target_country}",
-            "date": "YYYY-MM-DD",
-            "time": "HH:MM"
-        }}
-        
-        Return ONLY valid JSON, no additional text.
-        """
-        
+        # Gemini API 호출
         response = model.generate_content([
-            {
-                "mime_type": "image/jpeg",
-                "data": image_data,
-            },
-            prompt
+            prompt,
+            {"mime_type": "image/jpeg", "data": image_data}
         ])
         
-        receipt_data = extract_json_from_text(response.text)
+        # 응답 파싱
+        response_text = response.text
         
-        if not receipt_data:
-            receipt_data = {
-                "merchant_name": "Unknown",
-                "items": [],
-                "subtotal": 0.0,
-                "tax": 0.0,
-                "total": 0.0,
-                "currency": target_country,
+        # JSON 추출
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        
+        if json_start == -1 or json_end == 0:
+            return {
+                "success": False,
+                "error": "영수증 분석 실패: 유효한 JSON을 추출할 수 없습니다"
             }
         
-        total_local = receipt_data.get("total", 0.0)
-        exchange_rate = get_exchange_rate(target_country)
+        json_str = response_text[json_start:json_end]
+        result = json.loads(json_str)
+        
+        # 환율 및 원화 계산
+        exchange_rate = EXCHANGE_RATES.get(target_country, 1300)
+        total_local = float(result.get("total_local", 0))
         total_krw = total_local * exchange_rate
+        dutch_pay_per_person = total_krw / 3
         
-        items = receipt_data.get("items", [])
-        num_people = len([item for item in items if item]) if items else 1
-        if num_people == 0:
-            num_people = 1
-        
-        dutch_pay_per_person = total_krw / num_people
-        
-        result = {
-            "merchant_name": receipt_data.get("merchant_name", "Unknown"),
-            "items": items,
-            "subtotal_local": receipt_data.get("subtotal", 0.0),
-            "tax_local": receipt_data.get("tax", 0.0),
+        return {
+            "success": True,
+            "merchant_name": result.get("merchant_name", "Unknown"),
+            "items": result.get("items", []),
             "total_local": total_local,
             "currency": target_country,
-            "total_krw": round(total_krw, 2),
             "exchange_rate": exchange_rate,
-            "dutch_pay": {
-                "num_people": num_people,
-                "per_person_krw": round(dutch_pay_per_person, 2),
-                "per_person_local": round(total_local / num_people, 2),
-            },
-            "date": receipt_data.get("date"),
-            "time": receipt_data.get("time"),
+            "total_krw": round(total_krw, 2),
+            "dutch_pay_per_person": round(dutch_pay_per_person, 2),
+            "date": result.get("date", ""),
+            "category": result.get("category", "other"),
         }
         
-        return result
-        
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"JSON 파싱 오류: {str(e)}"
+        }
     except Exception as e:
         return {
-            "error": str(e),
-            "merchant_name": "Error",
-            "total_krw": 0.0,
-            "currency": target_country,
+            "success": False,
+            "error": f"영수증 분석 오류: {str(e)}"
         }
 
-def analyze_price_before_purchase(image_data_or_text: str, target_country: str = "USD", is_image: bool = False) -> Dict[str, Any]:
+
+def analyze_price_before_purchase(
+    image_or_text: str,
+    target_country: str = "USD",
+    is_image: bool = True
+) -> Dict[str, Any]:
     """
-    메뉴판/가격표 분석 - 결제 전 가격 비교
-    메뉴명, 현지 가격, 원화 환산 금액, 평균가 비교 멘트 포함
+    메뉴판/가격표 분석
+    - 메뉴명, 가격, 원화 환산, 평균가 비교 정보 반환
     """
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         
         if is_image:
+            # 이미지 분석
+            image_data = base64.b64decode(image_or_text)
             prompt = f"""
-            Analyze this menu/price list image and extract items with prices in JSON format:
-            
-            {{
-                "menu_items": [
-                    {{"name": "item name", "price": 0.00, "description": "brief description"}},
-                ],
-                "currency": "{target_country}",
-                "restaurant_name": "Name if visible"
-            }}
-            
-            Return ONLY valid JSON, no additional text.
-            """
-            
+당신은 메뉴판 분석 전문가입니다. 다음 메뉴판 이미지를 분석하고 JSON 형식으로 다음 정보를 반환하세요:
+
+메뉴 항목들의 리스트:
+1. name: 메뉴명
+2. price: 가격
+3. currency: 통화 코드
+
+응답은 반드시 유효한 JSON 형식이어야 합니다.
+예: {{"items": [{{"name": "Coffee", "price": 5.50, "currency": "USD"}}]}}
+"""
             response = model.generate_content([
-                {
-                    "mime_type": "image/jpeg",
-                    "data": image_data_or_text,
-                },
-                prompt
+                prompt,
+                {"mime_type": "image/jpeg", "data": image_data}
             ])
         else:
+            # 텍스트 분석
             prompt = f"""
-            Parse this menu text and extract items with prices in JSON format:
-            
-            {{
-                "menu_items": [
-                    {{"name": "item name", "price": 0.00, "description": "brief description"}},
-                ],
-                "currency": "{target_country}",
-                "restaurant_name": "Name if mentioned"
-            }}
-            
-            Text to parse:
-            {image_data_or_text}
-            
-            Return ONLY valid JSON, no additional text.
-            """
-            
+당신은 메뉴판 분석 전문가입니다. 다음 메뉴판 텍스트를 분석하고 JSON 형식으로 다음 정보를 반환하세요:
+
+메뉴 항목들의 리스트:
+1. name: 메뉴명
+2. price: 가격
+3. currency: 통화 코드
+
+응답은 반드시 유효한 JSON 형식이어야 합니다.
+예: {{"items": [{{"name": "Coffee", "price": 5.50, "currency": "USD"}}]}}
+
+메뉴판 텍스트:
+{image_or_text}
+"""
             response = model.generate_content(prompt)
         
-        menu_data = extract_json_from_text(response.text)
+        response_text = response.text
         
-        if not menu_data:
-            menu_data = {
-                "menu_items": [],
-                "currency": target_country,
-                "restaurant_name": "Unknown",
+        # JSON 추출
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        
+        if json_start == -1 or json_end == 0:
+            return {
+                "success": False,
+                "error": "메뉴판 분석 실패: 유효한 JSON을 추출할 수 없습니다"
             }
         
-        exchange_rate = get_exchange_rate(target_country)
+        json_str = response_text[json_start:json_end]
+        result = json.loads(json_str)
         
-        analyzed_items = []
-        for item in menu_data.get("menu_items", []):
-            item_name = item.get("name", "Unknown")
-            local_price = item.get("price", 0.0)
-            krw_price = local_price * exchange_rate
+        # 환율 및 평균가 비교
+        exchange_rate = EXCHANGE_RATES.get(target_country, 1300)
+        avg_prices = AVERAGE_PRICES.get(target_country, {})
+        
+        items = []
+        for item in result.get("items", []):
+            name = item.get("name", "").lower()
+            price = float(item.get("price", 0))
+            price_krw = price * exchange_rate
             
-            average_price = get_average_price(target_country, item_name)
+            # 평균가 찾기
+            avg_price = None
+            for key, value in avg_prices.items():
+                if key.lower() in name:
+                    avg_price = value
+                    break
             
-            if average_price:
-                price_diff = local_price - average_price
-                price_diff_percent = (price_diff / average_price * 100) if average_price > 0 else 0
-                
-                if price_diff > 0:
-                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 대비 약 {price_diff_percent:.1f}% 높게 책정되어 있습니다."
-                elif price_diff < 0:
-                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 대비 약 {abs(price_diff_percent):.1f}% 낮게 책정되어 있습니다."
+            # 평균가 비교
+            if avg_price:
+                percentage_diff = ((price - avg_price) / avg_price) * 100
+                if percentage_diff < -10:
+                    price_comparison = "저렴"
+                elif percentage_diff > 10:
+                    price_comparison = "비쌈"
                 else:
-                    comparison = f"현재 설정된 {target_country}의 {item_name} 평균가는 약 {average_price:.2f}입니다. 이 메뉴는 평균 가격과 동일하게 책정되어 있습니다."
+                    price_comparison = "평균"
+                
+                comparison_message = f"현재 설정된 {target_country}의 {name} 평균가는 약 {avg_price:.2f} {target_country}입니다. 이 메뉴는 평균 대비 약 {abs(percentage_diff):.1f}% {'높게' if percentage_diff > 0 else '낮게'} 책정되어 있습니다."
             else:
-                comparison = f"이 메뉴의 평균 가격 정보가 없습니다."
+                percentage_diff = 0
+                price_comparison = "정보없음"
+                comparison_message = f"{name}의 평균가 정보가 없습니다."
             
-            analyzed_items.append({
-                "name": item_name,
-                "price_local": local_price,
-                "price_krw": round(krw_price, 2),
+            items.append({
+                "name": item.get("name", ""),
+                "price_local": price,
                 "currency": target_country,
-                "description": item.get("description", ""),
-                "average_price_local": average_price,
-                "price_comparison": comparison,
+                "price_krw": round(price_krw, 2),
+                "exchange_rate": exchange_rate,
+                "average_price": avg_price,
+                "percentage_diff": round(percentage_diff, 2),
+                "price_comparison": price_comparison,
+                "comparison_message": comparison_message,
             })
         
-        result = {
-            "restaurant_name": menu_data.get("restaurant_name", "Unknown"),
-            "menu_items": analyzed_items,
+        return {
+            "success": True,
+            "items": items,
             "currency": target_country,
-            "exchange_rate": exchange_rate,
         }
         
-        return result
-        
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"JSON 파싱 오류: {str(e)}"
+        }
     except Exception as e:
         return {
-            "error": str(e),
-            "restaurant_name": "Error",
-            "menu_items": [],
-            "currency": target_country,
+            "success": False,
+            "error": f"메뉴판 분석 오류: {str(e)}"
         }

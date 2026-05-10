@@ -1,94 +1,86 @@
-from xrpl.clients import JsonRpcClient
-from xrpl.models.transactions import Payment
-from xrpl.models.memos import Memo, MemoData
-from xrpl.wallet import Wallet
-from xrpl.transaction import submit_and_wait
+"""
+XRPL 블록체인 연동 서비스
+"""
 import json
 import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-XRPL_NETWORK_URL = os.getenv("XRPL_NETWORK_URL", "https://s.altnet.rippletest.net:51234")
-XRPL_WALLET_SEED = os.getenv("XRPL_WALLET_SEED")
-XRPL_ACCOUNT_ADDRESS = os.getenv("XRPL_ACCOUNT_ADDRESS")
+from xrpl.clients import JsonRpcClient
+from xrpl.models.transactions import Payment
+from xrpl.models.memos import Memo, MemoData
+from xrpl.wallet import Wallet
+from xrpl.transaction import submit_and_wait
 
+# XRPL 설정
+XRPL_NETWORK_URL = os.getenv("XRPL_NETWORK_URL", "https://s.altnet.rippletest.net:51234")
 client = JsonRpcClient(XRPL_NETWORK_URL)
 
-def record_transaction_with_memo(wallet_seed: Optional[str] = None, expense_data: Dict[str, Any] = None) -> Dict[str, Any]:
+
+def record_transaction_with_memo(
+    wallet_seed: str,
+    expense_data: Dict[str, Any]
+) -> Dict[str, Any]:
     """
-    XRPL 테스트넷에 거래 기록 저장
-    Memo 필드에 지출 내역을 JSON 문자열로 저장
-    성공 시 Tx Hash 반환
+    XRPL에 거래 기록 (Memo 필드에 JSON 저장)
     """
     try:
-        if not wallet_seed:
-            wallet_seed = XRPL_WALLET_SEED
-        if not wallet_seed:
-            return {
-                "success": False,
-                "error": "Wallet seed not provided",
-                "tx_hash": None,
-            }
-        
+        # 지갑 생성
         wallet = Wallet.from_seed(wallet_seed)
         
-        if not expense_data:
-            expense_data = {}
-        
+        # Memo 데이터 생성
         memo_data = {
             "type": "expense",
-            "merchant": expense_data.get("merchant", "Unknown"),
-            "amount": expense_data.get("amount", 0.0),
-            "currency": expense_data.get("currency", "KRW"),
+            "merchant": expense_data.get("merchant_name", ""),
+            "amount": expense_data.get("total_local", 0),
+            "currency": expense_data.get("currency", "USD"),
             "category": expense_data.get("category", "other"),
-            "description": expense_data.get("description", ""),
+            "date": expense_data.get("date", ""),
+            "items": expense_data.get("items", []),
+            "dutch_pay": expense_data.get("dutch_pay_per_person", 0),
             "timestamp": datetime.utcnow().isoformat(),
-            "app": "FinanceCompass",
         }
-        
-        if "dutch_pay" in expense_data:
-            memo_data["dutch_pay"] = expense_data["dutch_pay"]
         
         memo_json = json.dumps(memo_data, ensure_ascii=False)
         memo_hex = memo_json.encode('utf-8').hex().upper()
         
+        # Memo 객체 생성
         memo = Memo(
             memo_data=MemoData(data=memo_hex)
         )
         
+        # Payment 트랜잭션 생성 (자신에게 전송하여 Memo 기록)
         payment = Payment(
             account=wallet.address,
             destination=wallet.address,
             amount="1",
             memos=[memo],
-            sequence=None,
             fee="12",
         )
         
+        # 트랜잭션 제출
         response = submit_and_wait(payment, client, wallet)
         
         if response.result.get("meta", {}).get("TransactionResult") == "tesSUCCESS":
             return {
                 "success": True,
-                "tx_hash": response.result.get("hash"),
-                "ledger_index": response.result.get("ledger_index"),
-                "timestamp": datetime.utcnow().isoformat(),
-                "memo_data": memo_data,
+                "tx_hash": response.result.get("hash", ""),
                 "account": wallet.address,
+                "memo": memo_data,
+                "timestamp": datetime.utcnow().isoformat(),
             }
         else:
             return {
                 "success": False,
-                "error": response.result.get("meta", {}).get("TransactionResult", "Unknown error"),
-                "tx_hash": None,
+                "error": response.result.get("meta", {}).get("TransactionResult", "Unknown error")
             }
         
     except Exception as e:
         return {
             "success": False,
-            "error": str(e),
-            "tx_hash": None,
+            "error": f"XRPL 기록 오류: {str(e)}"
         }
+
 
 def get_transaction_info(tx_hash: str) -> Dict[str, Any]:
     """
@@ -102,47 +94,40 @@ def get_transaction_info(tx_hash: str) -> Dict[str, Any]:
         
         result = response.result
         
+        # Memo 데이터 추출
         memo_data = None
         if "Memos" in result and len(result["Memos"]) > 0:
-            memo_hex = result["Memos"][0]["Memo"]["MemoData"]
             try:
-                memo_data = json.loads(bytes.fromhex(memo_hex).decode('utf-8'))
+                memo_hex = result["Memos"][0]["Memo"]["MemoData"]
+                memo_text = bytes.fromhex(memo_hex).decode('utf-8')
+                memo_data = json.loads(memo_text)
             except:
-                memo_data = {"raw": memo_hex}
+                memo_data = None
         
         return {
             "success": True,
             "tx_hash": tx_hash,
-            "account": result.get("Account"),
-            "destination": result.get("Destination"),
-            "amount": result.get("Amount"),
-            "fee": result.get("Fee"),
-            "ledger_index": result.get("ledger_index"),
-            "timestamp": result.get("date"),
+            "account": result.get("Account", ""),
+            "destination": result.get("Destination", ""),
+            "amount": result.get("Amount", ""),
+            "fee": result.get("Fee", ""),
+            "ledger_index": result.get("ledger_index", ""),
             "status": "confirmed" if result.get("meta", {}).get("TransactionResult") == "tesSUCCESS" else "failed",
-            "memo_data": memo_data,
+            "memo": memo_data,
         }
         
     except Exception as e:
         return {
             "success": False,
-            "error": str(e),
-            "tx_hash": tx_hash,
+            "error": f"트랜잭션 조회 오류: {str(e)}"
         }
 
-def get_account_balance(account_address: Optional[str] = None) -> Dict[str, Any]:
+
+def get_account_balance(account_address: str) -> Dict[str, Any]:
     """
     XRPL 계정 잔액 조회
     """
     try:
-        if not account_address:
-            account_address = XRPL_ACCOUNT_ADDRESS
-        if not account_address:
-            return {
-                "success": False,
-                "error": "Account address not provided",
-            }
-        
         response = client.request({
             "method": "account_info",
             "account": account_address,
@@ -158,15 +143,14 @@ def get_account_balance(account_address: Optional[str] = None) -> Dict[str, Any]
             "account": account_address,
             "balance_xrp": balance_xrp,
             "balance_drops": balance_drops,
-            "flags": result.get("Flags"),
-            "sequence": result.get("Sequence"),
         }
         
     except Exception as e:
         return {
             "success": False,
-            "error": str(e),
+            "error": f"잔액 조회 오류: {str(e)}"
         }
+
 
 def validate_wallet(wallet_seed: str) -> Dict[str, Any]:
     """
@@ -182,5 +166,5 @@ def validate_wallet(wallet_seed: str) -> Dict[str, Any]:
     except Exception as e:
         return {
             "success": False,
-            "error": str(e),
+            "error": f"지갑 검증 오류: {str(e)}"
         }
