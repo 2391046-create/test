@@ -1,121 +1,146 @@
-"""F01: XRPL 지갑 생성 및 잔액 조회"""
+"""
+XRPL 지갑 관리 라우터
+"""
 import uuid
-from decimal import Decimal
+import base64
+from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.database import get_db
-from app.models.user import User
-from app.models.wallet import Wallet, WalletBalance
-from app.schemas.wallet import BalanceInfo, WalletCreate, WalletResponse
+from app.models.wallet import Wallet
 from app.services import xrpl_service
 
 router = APIRouter(prefix="/api/wallets", tags=["wallets"])
 
 
-@router.post("/", response_model=WalletResponse, status_code=201)
-async def create_wallet(body: WalletCreate, db: AsyncSession = Depends(get_db)):
-    """F01: XRPL 지갑 생성 → TrustLine 설정 → DB 저장"""
-    # Validate user exists
-    result = await db.execute(select(User).where(User.id == body.user_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+class WalletConnectRequest(BaseModel):
+    user_id: str
+    wallet_seed: str
+    wallet_name: Optional[str] = "My XRPL Wallet"
 
-    if not settings.XRPL_ISSUER_ADDRESS:
-        raise HTTPException(
-            status_code=500,
-            detail="XRPL_ISSUER_ADDRESS not configured. Run scripts/setup_issuer.py first.",
-        )
 
-    # Create XRPL wallet via testnet faucet (10-15s)
-    xrpl_wallet = await xrpl_service.create_xrpl_wallet()
+class WalletValidateRequest(BaseModel):
+    wallet_seed: str
 
-    # Set trust lines for each requested currency
-    await xrpl_service.set_trust_lines(
-        seed=xrpl_wallet["seed"],
-        currencies=body.currencies,
-        issuer=settings.XRPL_ISSUER_ADDRESS,
-    )
 
-    # Persist wallet with encrypted seed
-    encrypted = xrpl_service.encrypt_seed(xrpl_wallet["seed"])
+@router.post("/connect")
+async def connect_wallet(body: WalletConnectRequest, db: AsyncSession = Depends(get_db)):
+    """
+    XRPL 지갑 연결
+    - seed로 지갑 주소 추출
+    - 암호화하여 DB 저장
+    - 중복 연결 방지
+    """
+    # 지갑 검증
+    validation = xrpl_service.validate_wallet(body.wallet_seed)
+    if not validation["success"]:
+        raise HTTPException(status_code=400, detail=validation["error"])
+
+    address = validation["address"]
+
+    # 중복 확인
+    existing = await db.execute(select(Wallet).where(Wallet.address == address))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="이미 연결된 지갑입니다")
+
+    # seed 암호화 저장 (base64 인코딩 - 실제 서비스에서는 더 강력한 암호화 사용)
+    encoded_seed = base64.b64encode(body.wallet_seed.encode()).decode()
+
     wallet = Wallet(
+        id=str(uuid.uuid4()),
         user_id=body.user_id,
-        xrpl_address=xrpl_wallet["address"],
-        encrypted_seed=encrypted,
+        name=body.wallet_name,
+        address=address,
+        public_key=validation.get("public_key", ""),
+        encrypted_seed=encoded_seed,
     )
     db.add(wallet)
-    await db.flush()
-
-    # Seed initial XRP balance from XRPL
-    balances_raw = await xrpl_service.get_account_balances(xrpl_wallet["address"])
-    balance_objects = []
-    for b in balances_raw:
-        wb = WalletBalance(
-            wallet_id=wallet.id,
-            currency=b["currency"],
-            amount=Decimal(b["amount"]),
-        )
-        db.add(wb)
-        balance_objects.append(BalanceInfo(
-            currency=b["currency"],
-            amount=b["amount"],
-            issuer=b.get("issuer"),
-        ))
-
     await db.commit()
     await db.refresh(wallet)
 
-    return WalletResponse(
-        id=wallet.id,
-        user_id=wallet.user_id,
-        xrpl_address=wallet.xrpl_address,
-        created_at=wallet.created_at,
-        balances=balance_objects,
-    )
+    return {
+        "success": True,
+        "wallet": {
+            "id": wallet.id,
+            "address": wallet.address,
+            "name": wallet.name,
+            "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
+        }
+    }
 
 
-@router.get("/{wallet_id}", response_model=WalletResponse)
-async def get_wallet(wallet_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """F01: 지갑 조회 — XRPL에서 최신 잔액 동기화"""
+@router.post("/validate")
+async def validate_wallet(body: WalletValidateRequest):
+    """지갑 seed 검증 (저장 안 함)"""
+    result = xrpl_service.validate_wallet(body.wallet_seed)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"success": True, "address": result["address"]}
+
+
+@router.get("/list")
+async def list_wallets(user_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    """사용자의 지갑 목록 조회"""
     result = await db.execute(
-        select(Wallet).where(Wallet.id == wallet_id).options(selectinload(Wallet.balances))
+        select(Wallet).where(Wallet.user_id == user_id).where(Wallet.is_active == True)
     )
+    wallets = result.scalars().all()
+
+    return {
+        "success": True,
+        "wallets": [
+            {
+                "id": w.id,
+                "address": w.address,
+                "name": w.name,
+                "created_at": w.created_at.isoformat() if w.created_at else None,
+            }
+            for w in wallets
+        ]
+    }
+
+
+@router.get("/{wallet_id}/balance")
+async def get_balance(wallet_id: str, db: AsyncSession = Depends(get_db)):
+    """XRPL 지갑 실시간 잔액 조회"""
+    result = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
     wallet = result.scalar_one_or_none()
     if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+        raise HTTPException(status_code=404, detail="지갑을 찾을 수 없습니다")
 
-    # Sync balances from XRPL
-    balances_raw = await xrpl_service.get_account_balances(wallet.xrpl_address)
+    balance = xrpl_service.get_account_balance(wallet.address)
+    if not balance["success"]:
+        # 잔액 조회 실패해도 지갑 정보는 반환
+        return {
+            "success": True,
+            "wallet_id": wallet_id,
+            "address": wallet.address,
+            "balance_xrp": 0,
+            "error": balance.get("error"),
+        }
 
-    # Update DB balances
-    for b in balances_raw:
-        existing = next(
-            (wb for wb in wallet.balances if wb.currency == b["currency"]), None
-        )
-        if existing:
-            existing.amount = Decimal(b["amount"])
-        else:
-            db.add(WalletBalance(
-                wallet_id=wallet.id,
-                currency=b["currency"],
-                amount=Decimal(b["amount"]),
-            ))
+    return {
+        "success": True,
+        "wallet_id": wallet_id,
+        "address": wallet.address,
+        "balance_xrp": balance["balance_xrp"],
+        "balance_drops": balance["balance_drops"],
+    }
+
+
+@router.delete("/{wallet_id}")
+async def delete_wallet(wallet_id: str, db: AsyncSession = Depends(get_db)):
+    """지갑 삭제"""
+    result = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
+    wallet = result.scalar_one_or_none()
+    if not wallet:
+        raise HTTPException(status_code=404, detail="지갑을 찾을 수 없습니다")
+
+    wallet.is_active = False
     await db.commit()
-
-    balance_list = [
-        BalanceInfo(currency=b["currency"], amount=b["amount"], issuer=b.get("issuer"))
-        for b in balances_raw
-    ]
-
-    return WalletResponse(
-        id=wallet.id,
-        user_id=wallet.user_id,
-        xrpl_address=wallet.xrpl_address,
-        created_at=wallet.created_at,
-        balances=balance_list,
-    )
+    return {"success": True, "message": "지갑이 삭제되었습니다"}

@@ -1,6 +1,26 @@
+/**
+ * 메뉴판 스캐너 훅 - 백엔드 API 연동
+ */
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { MenuAnalysisResult, Currency } from "@/types";
+import { analyzeMenu } from "@/lib/api";
+import { imageUriToBase64 } from "@/lib/receipt-ocr";
+
+export type MenuAnalysisResult = {
+  success: boolean;
+  currency: string;
+  items: Array<{
+    name: string;
+    price: number;
+    currency: string;
+    price_krw: number;
+    average_price: number | null;
+    percentage_diff: number;
+    price_comparison: "저렴" | "평균" | "비쌈" | "정보없음";
+    message: string;
+    exchange_rate: number;
+  }>;
+};
 
 export function useMenuScanner() {
   const [isLoading, setIsLoading] = useState(false);
@@ -8,166 +28,61 @@ export function useMenuScanner() {
   const [result, setResult] = useState<MenuAnalysisResult | null>(null);
 
   const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        setError("카메라 라이브러리 접근 권한이 필요합니다");
-        return null;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        return result.assets[0].uri;
-      }
-    } catch (err) {
-      setError("이미지 선택 실패: " + String(err));
-    }
-    return null;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return null;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    return res.canceled ? null : res.assets[0].uri;
   };
 
   const takePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        setError("카메라 접근 권한이 필요합니다");
-        return null;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        return result.assets[0].uri;
-      }
-    } catch (err) {
-      setError("카메라 실행 실패: " + String(err));
-    }
-    return null;
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") return null;
+    const res = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    return res.canceled ? null : res.assets[0].uri;
   };
 
-  const analyzeMenu = async (
-    imageUri: string,
-    currency: Currency,
-    backendUrl: string
-  ) => {
+  const analyzeImage = async (imageUri: string, currency = "USD") => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const reader = new FileReader();
-
-      return new Promise<MenuAnalysisResult>((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64 = (reader.result as string).split(",")[1];
-
-            const apiResponse = await fetch(`${backendUrl}/api/scanner/price`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                image_base64: base64,
-                target_country: currency,
-              }),
-            });
-
-            if (!apiResponse.ok) {
-              throw new Error("메뉴판 분석 실패");
-            }
-
-            const data = await apiResponse.json();
-            const analysisResult = data.data as MenuAnalysisResult;
-
-            setResult(analysisResult);
-            setIsLoading(false);
-            resolve(analysisResult);
-          } catch (err) {
-            const errorMsg = "분석 오류: " + String(err);
-            setError(errorMsg);
-            setIsLoading(false);
-            reject(err);
-          }
-        };
-
-        reader.onerror = () => {
-          setError("이미지 읽기 실패");
-          setIsLoading(false);
-          reject(new Error("이미지 읽기 실패"));
-        };
-
-        reader.readAsDataURL(blob);
-      });
+      const base64 = await imageUriToBase64(imageUri);
+      const data = await analyzeMenu(base64, null, currency) as MenuAnalysisResult;
+      setResult(data);
+      return data;
     } catch (err) {
-      const errorMsg = "분석 실패: " + String(err);
-      setError(errorMsg);
-      setIsLoading(false);
+      setError(String(err));
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const analyzeMenuText = async (
-    text: string,
-    currency: Currency,
-    backendUrl: string
-  ) => {
+  const analyzeText = async (text: string, currency = "USD") => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const apiResponse = await fetch(`${backendUrl}/api/scanner/price`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: text,
-          target_country: currency,
-        }),
-      });
-
-      if (!apiResponse.ok) {
-        throw new Error("메뉴판 분석 실패");
-      }
-
-      const data = await apiResponse.json();
-      const analysisResult = data.data as MenuAnalysisResult;
-
-      setResult(analysisResult);
-      setIsLoading(false);
-      return analysisResult;
+      const data = await analyzeMenu(null, text, currency) as MenuAnalysisResult;
+      setResult(data);
+      return data;
     } catch (err) {
-      const errorMsg = "분석 실패: " + String(err);
-      setError(errorMsg);
-      setIsLoading(false);
+      setError(String(err));
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const clearResult = () => {
+  const clear = () => {
     setResult(null);
     setError(null);
   };
 
-  return {
-    isLoading,
-    error,
-    result,
-    pickImage,
-    takePhoto,
-    analyzeMenu,
-    analyzeMenuText,
-    clearResult,
-  };
+  return { isLoading, error, result, pickImage, takePhoto, analyzeImage, analyzeText, clear };
 }

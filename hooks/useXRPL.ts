@@ -1,97 +1,47 @@
+/**
+ * XRPL 지갑 훅 - 백엔드 API 연동
+ */
 import { useState } from "react";
-import { XRPLTransactionResult } from "@/types";
+import { connectWallet, getWallets, getWalletBalance, recordToXrpl } from "@/lib/api";
 
-export function useXRPL() {
+export function useXRPL(userId: string) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
 
-  const recordTransaction = async (
-    expenseData: Record<string, any>,
-    walletSeed: string,
-    backendUrl: string
-  ): Promise<XRPLTransactionResult> => {
+  const connect = async (seed: string, name?: string) => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(`${backendUrl}/api/expenses/record`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          expense_data: expenseData,
-          wallet_seed: walletSeed,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("XRPL 기록 실패");
-      }
-
-      const data = await response.json();
-      const result = data.data as XRPLTransactionResult;
-
-      if (result.success && result.tx_hash) {
-        setTxHash(result.tx_hash);
-      }
-
-      setIsLoading(false);
+      const result = await connectWallet(userId, seed, name) as any;
       return result;
     } catch (err) {
-      const errorMsg = "XRPL 기록 오류: " + String(err);
-      setError(errorMsg);
-      setIsLoading(false);
+      setError(String(err));
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getTransactionInfo = async (
-    txHash: string,
-    backendUrl: string
-  ): Promise<XRPLTransactionResult> => {
+  const list = async () => {
+    return getWallets(userId);
+  };
+
+  const balance = async (walletId: string) => {
+    return getWalletBalance(walletId);
+  };
+
+  const recordTransaction = async (transactionId: string, walletSeed: string) => {
     setIsLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch(`${backendUrl}/api/expenses/transaction-info`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tx_hash: txHash,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("트랜잭션 조회 실패");
-      }
-
-      const data = await response.json();
-      const result = data.data as XRPLTransactionResult;
-
-      setIsLoading(false);
+      const result = await recordToXrpl(transactionId, walletSeed);
       return result;
     } catch (err) {
-      const errorMsg = "조회 오류: " + String(err);
-      setError(errorMsg);
-      setIsLoading(false);
+      setError(String(err));
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const clearError = () => {
-    setError(null);
-  };
-
-  return {
-    isLoading,
-    error,
-    txHash,
-    recordTransaction,
-    getTransactionInfo,
-    clearError,
-  };
+  return { isLoading, error, connect, list, balance, recordTransaction };
 }

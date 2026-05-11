@@ -1,191 +1,188 @@
 """
-PDF 생성 서비스 - 거래 내역 증빙 자료
+PDF 증빙자료 생성 서비스 - reportlab 사용
 """
+import io
+import json
 from datetime import datetime
-from decimal import Decimal
 from typing import List, Dict, Any
-from io import BytesIO
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 
-async def generate_transaction_report(
-    user_name: str,
+def generate_transaction_report(
     transactions: List[Dict[str, Any]],
-    start_date: datetime,
-    end_date: datetime,
-    currency: str = "KRW",
-) -> BytesIO:
+    start_date: str,
+    end_date: str,
+    user_name: str = "사용자",
+    currency: str = "KRW"
+) -> bytes:
     """
     거래 내역 PDF 보고서 생성
     
-    Args:
-        user_name: 사용자 이름
-        transactions: 거래 내역 리스트
-        start_date: 시작 날짜
-        end_date: 종료 날짜
-        currency: 통화
-    
-    Returns:
-        BytesIO 객체 (PDF 파일)
+    Returns: PDF bytes
     """
-    
-    # PDF 생성
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    
-    # 스타일
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=20 * mm,
+        leftMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm,
+    )
+
     styles = getSampleStyleSheet()
+
+    # 스타일 정의
     title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#1f2937'),
-        spaceAfter=30,
+        "Title",
+        parent=styles["Heading1"],
+        fontSize=18,
+        spaceAfter=6,
         alignment=TA_CENTER,
+        textColor=colors.HexColor("#1a1a2e"),
     )
-    
-    heading_style = ParagraphStyle(
-        'CustomHeading',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#374151'),
-        spaceAfter=12,
+    subtitle_style = ParagraphStyle(
+        "Subtitle",
+        parent=styles["Normal"],
+        fontSize=10,
+        spaceAfter=4,
+        alignment=TA_CENTER,
+        textColor=colors.gray,
     )
-    
-    # 문서 요소
+    header_style = ParagraphStyle(
+        "Header",
+        parent=styles["Heading2"],
+        fontSize=13,
+        spaceAfter=4,
+        textColor=colors.HexColor("#16213e"),
+    )
+    normal_style = ParagraphStyle(
+        "Normal2",
+        parent=styles["Normal"],
+        fontSize=9,
+        spaceAfter=2,
+    )
+
     elements = []
-    
-    # 제목
-    elements.append(Paragraph("거래 내역 보고서", title_style))
-    elements.append(Spacer(1, 0.2 * inch))
-    
-    # 사용자 정보
-    user_info = f"사용자: {user_name} | 기간: {start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}"
-    elements.append(Paragraph(user_info, styles['Normal']))
-    elements.append(Spacer(1, 0.3 * inch))
-    
-    # 요약 통계
-    total_amount = sum(Decimal(str(tx.get("amount_krw", 0))) for tx in transactions)
-    category_summary = _calculate_category_summary(transactions)
-    
-    elements.append(Paragraph("요약 통계", heading_style))
+
+    # ── 제목 ──────────────────────────────────────────
+    elements.append(Paragraph("Finance Compass", title_style))
+    elements.append(Paragraph("거래 내역 증빙 보고서", subtitle_style))
+    elements.append(Paragraph(f"기간: {start_date} ~ {end_date}", subtitle_style))
+    elements.append(Paragraph(
+        f"생성일: {datetime.now().strftime('%Y-%m-%d %H:%M')} | 사용자: {user_name}",
+        subtitle_style
+    ))
+    elements.append(Spacer(1, 8 * mm))
+
+    # ── 요약 통계 ──────────────────────────────────────
+    elements.append(Paragraph("요약", header_style))
+
+    total_krw = sum(t.get("amount_krw", 0) for t in transactions)
+    total_count = len(transactions)
+
+    # 카테고리별 합계
+    category_totals: Dict[str, float] = {}
+    for t in transactions:
+        cat = t.get("category", "other")
+        category_totals[cat] = category_totals.get(cat, 0) + t.get("amount_krw", 0)
+
     summary_data = [
-        ["항목", "금액"],
-        ["총 지출액", f"{total_amount:,.0f} {currency}"],
-        ["거래 건수", f"{len(transactions)}건"],
+        ["항목", "값"],
+        ["총 거래 건수", f"{total_count}건"],
+        ["총 지출 (KRW)", f"₩{total_krw:,.0f}"],
+        ["기간", f"{start_date} ~ {end_date}"],
     ]
-    
-    summary_table = Table(summary_data, colWidths=[3 * inch, 2 * inch])
+
+    summary_table = Table(summary_data, colWidths=[80 * mm, 80 * mm])
     summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e5e7eb')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16213e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
     ]))
-    
     elements.append(summary_table)
-    elements.append(Spacer(1, 0.3 * inch))
-    
-    # 카테고리별 요약
-    elements.append(Paragraph("카테고리별 지출", heading_style))
-    category_data = [["카테고리", "금액", "건수", "비율"]]
-    
-    for category, info in category_summary.items():
-        percentage = (info["amount"] / total_amount * 100) if total_amount > 0 else 0
-        category_data.append([
-            category,
-            f"{info['amount']:,.0f}",
-            f"{info['count']}건",
-            f"{percentage:.1f}%",
+    elements.append(Spacer(1, 6 * mm))
+
+    # ── 카테고리별 지출 ────────────────────────────────
+    if category_totals:
+        elements.append(Paragraph("카테고리별 지출", header_style))
+        cat_data = [["카테고리", "지출 금액 (KRW)", "비율"]]
+        for cat, amount in sorted(category_totals.items(), key=lambda x: -x[1]):
+            pct = (amount / total_krw * 100) if total_krw > 0 else 0
+            cat_data.append([
+                cat.upper(),
+                f"₩{amount:,.0f}",
+                f"{pct:.1f}%",
+            ])
+
+        cat_table = Table(cat_data, colWidths=[60 * mm, 70 * mm, 40 * mm])
+        cat_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f3460")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("PADDING", (0, 0), (-1, -1), 6),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ]))
+        elements.append(cat_table)
+        elements.append(Spacer(1, 6 * mm))
+
+    # ── 거래 상세 내역 ─────────────────────────────────
+    elements.append(Paragraph("거래 상세 내역", header_style))
+
+    tx_data = [["날짜", "상호명", "카테고리", "현지금액", "KRW", "출처"]]
+    for t in sorted(transactions, key=lambda x: x.get("transaction_date", ""), reverse=True):
+        date_str = t.get("transaction_date", "")
+        if isinstance(date_str, str) and "T" in date_str:
+            date_str = date_str.split("T")[0]
+
+        tx_data.append([
+            date_str,
+            (t.get("merchant_name", "") or "")[:20],
+            t.get("category", "other").upper(),
+            f"{t.get('amount_local', 0):.2f} {t.get('currency', '')}",
+            f"₩{t.get('amount_krw', 0):,.0f}",
+            t.get("source", "manual")[:10],
         ])
-    
-    category_table = Table(category_data, colWidths=[1.5 * inch, 1.5 * inch, 1.5 * inch, 1.5 * inch])
-    category_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e5e7eb')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.lightgrey),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
-    
-    elements.append(category_table)
-    elements.append(Spacer(1, 0.3 * inch))
-    
-    # 거래 내역 상세
-    elements.append(PageBreak())
-    elements.append(Paragraph("거래 내역 상세", heading_style))
-    
-    # 거래 테이블
-    transaction_data = [[
-        "날짜",
-        "상호명",
-        "카테고리",
-        "금액 (현지)",
-        "금액 (원화)",
-        "환율",
-    ]]
-    
-    for tx in sorted(transactions, key=lambda x: x.get("transaction_date", ""), reverse=True):
-        tx_date = tx.get("transaction_date", "")
-        if isinstance(tx_date, datetime):
-            tx_date = tx_date.strftime("%Y-%m-%d")
-        
-        transaction_data.append([
-            tx_date,
-            tx.get("merchant_name", ""),
-            tx.get("category", ""),
-            f"{tx.get('amount_local', 0):.2f} {tx.get('currency', '')}",
-            f"{tx.get('amount_krw', 0):,.0f}",
-            f"{tx.get('exchange_rate', 1):.4f}",
-        ])
-    
-    tx_table = Table(transaction_data, colWidths=[1 * inch, 1.5 * inch, 1 * inch, 1.2 * inch, 1.2 * inch, 0.8 * inch])
+
+    tx_table = Table(tx_data, colWidths=[22*mm, 45*mm, 22*mm, 30*mm, 28*mm, 18*mm])
     tx_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e5e7eb')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#533483")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (3, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (2, -1), "LEFT"),
+        ("PADDING", (0, 0), (-1, -1), 4),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("FONTSIZE", (0, 1), (-1, -1), 7.5),
     ]))
-    
     elements.append(tx_table)
-    
-    # PDF 생성
+    elements.append(Spacer(1, 6 * mm))
+
+    # ── 푸터 ──────────────────────────────────────────
+    footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8,
+                                   textColor=colors.gray, alignment=TA_CENTER)
+    elements.append(Paragraph(
+        "본 문서는 Finance Compass 앱에서 자동 생성된 거래 증빙 자료입니다.",
+        footer_style
+    ))
+
     doc.build(elements)
-    buffer.seek(0)
-    
-    return buffer
-
-
-def _calculate_category_summary(transactions: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """카테고리별 요약 계산"""
-    summary = {}
-    
-    for tx in transactions:
-        category = tx.get("category", "other")
-        amount = Decimal(str(tx.get("amount_krw", 0)))
-        
-        if category not in summary:
-            summary[category] = {"amount": Decimal(0), "count": 0}
-        
-        summary[category]["amount"] += amount
-        summary[category]["count"] += 1
-    
-    return summary
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes

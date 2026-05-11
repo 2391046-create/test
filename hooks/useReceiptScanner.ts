@@ -1,136 +1,63 @@
+/**
+ * 영수증 스캐너 훅 - 백엔드 API 연동
+ */
 import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { ReceiptAnalysisResult, Currency } from "@/types";
+import { analyzeReceiptImage, ReceiptData, imageUriToBase64 } from "@/lib/receipt-ocr";
+import { analyzeReceipt } from "@/lib/api";
 
-export function useReceiptScanner() {
+export function useReceiptScanner(userId: string) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ReceiptAnalysisResult | null>(null);
+  const [result, setResult] = useState<ReceiptData | null>(null);
 
   const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        setError("카메라 라이브러리 접근 권한이 필요합니다");
-        return null;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        return result.assets[0].uri;
-      }
-    } catch (err) {
-      setError("이미지 선택 실패: " + String(err));
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      setError("갤러리 접근 권한이 필요합니다");
+      return null;
     }
-    return null;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    return res.canceled ? null : res.assets[0].uri;
   };
 
   const takePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        setError("카메라 접근 권한이 필요합니다");
-        return null;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        return result.assets[0].uri;
-      }
-    } catch (err) {
-      setError("카메라 실행 실패: " + String(err));
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      setError("카메라 접근 권한이 필요합니다");
+      return null;
     }
-    return null;
+    const res = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    return res.canceled ? null : res.assets[0].uri;
   };
 
-  const analyzeReceipt = async (
-    imageUri: string,
-    currency: Currency,
-    backendUrl: string
-  ) => {
+  const analyze = async (imageUri: string, currency = "USD") => {
     setIsLoading(true);
     setError(null);
-
     try {
-      // 이미지를 Base64로 변환
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const reader = new FileReader();
-
-      return new Promise<ReceiptAnalysisResult>((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64 = (reader.result as string).split(",")[1];
-
-            // 백엔드 API 호출
-            const apiResponse = await fetch(`${backendUrl}/api/scanner/receipt`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                image_base64: base64,
-                target_country: currency,
-              }),
-            });
-
-            if (!apiResponse.ok) {
-              throw new Error("영수증 분석 실패");
-            }
-
-            const data = await apiResponse.json();
-            const analysisResult = data.data as ReceiptAnalysisResult;
-
-            setResult(analysisResult);
-            setIsLoading(false);
-            resolve(analysisResult);
-          } catch (err) {
-            const errorMsg = "분석 오류: " + String(err);
-            setError(errorMsg);
-            setIsLoading(false);
-            reject(err);
-          }
-        };
-
-        reader.onerror = () => {
-          setError("이미지 읽기 실패");
-          setIsLoading(false);
-          reject(new Error("이미지 읽기 실패"));
-        };
-
-        reader.readAsDataURL(blob);
-      });
+      const data = await analyzeReceiptImage(imageUri, userId, currency);
+      setResult(data);
+      return data;
     } catch (err) {
-      const errorMsg = "분석 실패: " + String(err);
-      setError(errorMsg);
-      setIsLoading(false);
+      const msg = String(err);
+      setError(msg);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const clearResult = () => {
+  const clear = () => {
     setResult(null);
     setError(null);
   };
 
-  return {
-    isLoading,
-    error,
-    result,
-    pickImage,
-    takePhoto,
-    analyzeReceipt,
-    clearResult,
-  };
+  return { isLoading, error, result, pickImage, takePhoto, analyze, clear };
 }

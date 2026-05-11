@@ -1,159 +1,109 @@
 """
-실시간 환율 조회 서비스
+실시간 환율 서비스 - 무료 API 여러 개를 순서대로 시도
 """
 import asyncio
 import aiohttp
-from decimal import Decimal
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 import json
 
-# 환율 캐시
-_exchange_rate_cache: Dict[str, tuple[Dict[str, float], datetime]] = {}
-CACHE_DURATION = timedelta(minutes=30)  # 30분 캐시
+# 캐시 (30분)
+_cache: Dict[str, tuple] = {}
+CACHE_DURATION = timedelta(minutes=30)
+
+# 기본 환율 (API 모두 실패 시 사용)
+FALLBACK_TO_KRW = {
+    "USD": 1350.0,
+    "JPY": 9.2,
+    "GBP": 1710.0,
+    "EUR": 1460.0,
+    "CNY": 186.0,
+    "THB": 38.0,
+    "SGD": 1005.0,
+    "AUD": 878.0,
+    "CAD": 990.0,
+    "HKD": 173.0,
+    "KRW": 1.0,
+}
 
 
-async def get_exchange_rates(base_currency: str = "USD") -> Dict[str, float]:
-    """
-    실시간 환율 조회 (캐시 활용)
-    
-    Args:
-        base_currency: 기준 통화
-    
-    Returns:
-        {"USD": 1.0, "JPY": 110.5, "KRW": 1200, ...}
-    """
-    # 캐시 확인
-    if base_currency in _exchange_rate_cache:
-        rates, cached_time = _exchange_rate_cache[base_currency]
-        if datetime.now() - cached_time < CACHE_DURATION:
+async def get_rate_to_krw(currency: str) -> float:
+    """특정 통화 → KRW 환율 반환"""
+    currency = currency.upper()
+    if currency == "KRW":
+        return 1.0
+
+    rates = await get_all_rates_to_krw()
+    return rates.get(currency, FALLBACK_TO_KRW.get(currency, 1350.0))
+
+
+async def get_all_rates_to_krw() -> Dict[str, float]:
+    """모든 통화 → KRW 환율 반환 (캐시 활용)"""
+    cache_key = "all_to_krw"
+
+    if cache_key in _cache:
+        rates, cached_at = _cache[cache_key]
+        if datetime.now() - cached_at < CACHE_DURATION:
             return rates
-    
-    try:
-        # API 호출 (여러 소스 시도)
-        rates = await _fetch_from_exchangerate_api(base_currency)
-        
-        if not rates:
-            rates = await _fetch_from_fixer_api(base_currency)
-        
-        if not rates:
-            rates = _get_fallback_rates(base_currency)
-        
-        # 캐시 저장
-        _exchange_rate_cache[base_currency] = (rates, datetime.now())
-        
-        return rates
-        
-    except Exception as e:
-        print(f"환율 조회 오류: {e}")
-        return _get_fallback_rates(base_currency)
+
+    rates = await _fetch_rates()
+    _cache[cache_key] = (rates, datetime.now())
+    return rates
 
 
-async def _fetch_from_exchangerate_api(base_currency: str) -> Optional[Dict[str, float]]:
-    """exchangerate-api.com에서 환율 조회"""
+async def _fetch_rates() -> Dict[str, float]:
+    """무료 환율 API 순서대로 시도"""
+    # 1순위: exchangerate-api.com (완전 무료, 키 불필요)
     try:
-        url = f"https://api.exchangerate-api.com/v4/latest/{base_currency}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(
+                "https://api.exchangerate-api.com/v4/latest/KRW",
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    return data.get("rates", {})
+                    raw = data.get("rates", {})
+                    # KRW 기준이므로, 1/rate = 해당 통화 → KRW
+                    result = {}
+                    for cur, rate in raw.items():
+                        if rate > 0:
+                            result[cur] = 1.0 / rate
+                    result["KRW"] = 1.0
+                    print(f"✅ 환율 업데이트 성공 (exchangerate-api.com): USD={result.get('USD', 'N/A')}")
+                    return result
     except Exception as e:
-        print(f"exchangerate-api 오류: {e}")
-    
-    return None
+        print(f"exchangerate-api 실패: {e}")
 
-
-async def _fetch_from_fixer_api(base_currency: str) -> Optional[Dict[str, float]]:
-    """fixer.io에서 환율 조회 (무료 버전)"""
+    # 2순위: open.er-api.com (완전 무료)
     try:
-        url = f"https://api.fixer.io/latest?base={base_currency}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(
+                "https://open.er-api.com/v6/latest/KRW",
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    return data.get("rates", {})
+                    raw = data.get("rates", {})
+                    result = {}
+                    for cur, rate in raw.items():
+                        if rate > 0:
+                            result[cur] = 1.0 / rate
+                    result["KRW"] = 1.0
+                    print(f"✅ 환율 업데이트 성공 (open.er-api.com)")
+                    return result
     except Exception as e:
-        print(f"fixer.io 오류: {e}")
-    
-    return None
+        print(f"open.er-api 실패: {e}")
+
+    print("⚠️ 모든 환율 API 실패 - 기본값 사용")
+    return FALLBACK_TO_KRW.copy()
 
 
-def _get_fallback_rates(base_currency: str) -> Dict[str, float]:
-    """
-    기본 환율 (API 실패 시 사용)
-    """
-    fallback_rates = {
-        "USD": {
-            "USD": 1.0,
-            "JPY": 110.5,
-            "GBP": 0.73,
-            "EUR": 0.85,
-            "CNY": 6.45,
-            "THB": 33.5,
-            "SGD": 1.35,
-            "AUD": 1.35,
-            "CAD": 1.25,
-            "HKD": 7.78,
-            "KRW": 1200,
-        },
-        "KRW": {
-            "USD": 1 / 1200,
-            "JPY": 110.5 / 1200,
-            "GBP": 0.73 / 1200,
-            "EUR": 0.85 / 1200,
-            "CNY": 6.45 / 1200,
-            "THB": 33.5 / 1200,
-            "SGD": 1.35 / 1200,
-            "AUD": 1.35 / 1200,
-            "CAD": 1.25 / 1200,
-            "HKD": 7.78 / 1200,
-            "KRW": 1.0,
-        },
-        "JPY": {
-            "USD": 1 / 110.5,
-            "JPY": 1.0,
-            "GBP": 0.73 / 110.5,
-            "EUR": 0.85 / 110.5,
-            "CNY": 6.45 / 110.5,
-            "THB": 33.5 / 110.5,
-            "SGD": 1.35 / 110.5,
-            "AUD": 1.35 / 110.5,
-            "CAD": 1.25 / 110.5,
-            "HKD": 7.78 / 110.5,
-            "KRW": 1200 / 110.5,
-        },
-    }
-    
-    return fallback_rates.get(base_currency, fallback_rates["USD"])
+async def convert_to_krw(amount: float, currency: str) -> float:
+    """금액을 KRW로 변환"""
+    rate = await get_rate_to_krw(currency)
+    return round(amount * rate, 2)
 
 
-async def convert_currency(amount: Decimal, from_currency: str, to_currency: str) -> Decimal:
-    """
-    통화 변환
-    
-    Args:
-        amount: 금액
-        from_currency: 원본 통화
-        to_currency: 대상 통화
-    
-    Returns:
-        변환된 금액
-    """
-    if from_currency == to_currency:
-        return amount
-    
-    rates = await get_exchange_rates(from_currency)
-    
-    if to_currency not in rates:
-        # 기본값 사용
-        rates = _get_fallback_rates(from_currency)
-    
-    rate = Decimal(str(rates.get(to_currency, 1.0)))
-    return amount * rate
-
-
-def clear_cache():
-    """환율 캐시 초기화"""
-    global _exchange_rate_cache
-    _exchange_rate_cache.clear()
+def get_fallback_rate(currency: str) -> float:
+    """즉시(동기) fallback 환율 반환"""
+    return FALLBACK_TO_KRW.get(currency.upper(), 1350.0)
