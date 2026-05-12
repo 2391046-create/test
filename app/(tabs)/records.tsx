@@ -12,7 +12,6 @@ import { processExcelFile } from '@/lib/excel-parser';
 import { useSettings } from '@/hooks/useSettings';
 import { COUNTRY_CONFIGS } from '@/types';
 
-
 type FilterMode = 'all' | 'date' | 'category';
 
 export default function RecordsScreen() {
@@ -25,7 +24,6 @@ export default function RecordsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [inputText, setInputText] = useState('');
   const [activeTab, setActiveTab] = useState<'manual' | 'receipt' | 'excel'>('manual');
-
 
   const exchangeRatesByCurrency = useMemo(
     () => ({
@@ -49,7 +47,6 @@ export default function RecordsScreen() {
 
     return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, selectedCategory, searchText]);
-
 
   const convertAmount = useCallback(
     (amount: number, fromCurrency: string, toCurrency: string) => {
@@ -87,7 +84,6 @@ export default function RecordsScreen() {
     [isEn],
   );
 
-
   const handleAddManual = useCallback(() => {
     if (inputText.trim()) {
       addNotification(inputText);
@@ -111,12 +107,10 @@ export default function RecordsScreen() {
         setModalVisible(false);
       }
     } catch (error) {
-
       alert(isEn ? 'Failed to process receipt.' : '영수증 처리 중 오류가 발생했습니다.');
       console.error('Receipt processing error:', error);
     }
   }, [addNotification, isEn]);
-
 
   const handlePickExcel = useCallback(async () => {
     try {
@@ -143,102 +137,100 @@ export default function RecordsScreen() {
       <View className="flex-1">
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }} className="flex-1">
           <View className="gap-4">
-        {/* 헤더 */}
-        <View className="gap-2 mb-5">
-          <Text className="text-3xl font-bold text-foreground leading-10">{isEn ? 'Records' : '거래 기록'}</Text>
-          <Text className="text-sm text-muted leading-5">{isEn ? 'Review and manage all transactions' : '모든 거래 내역을 확인하고 관리하세요'}</Text>
-        </View>
+            {/* 헤더 */}
+            <View className="gap-2 mb-5">
+              <Text className="text-3xl font-bold text-foreground leading-10">{isEn ? 'Records' : '거래 기록'}</Text>
+              <Text className="text-sm text-muted leading-5">{isEn ? 'Review and manage all transactions' : '모든 거래 내역을 확인하고 관리하세요'}</Text>
+            </View>
 
-        {/* 검색 및 필터 */}
-        <View className="gap-4">
-          <TextInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder={isEn ? 'Search by merchant or description...' : '상인명 또는 설명으로 검색...'}
-            className="rounded-2xl border border-border bg-surface px-4 py-3 text-foreground"
-            placeholderTextColor="#999"
-          />
+            {/* 검색 및 필터 */}
+            <View className="gap-4">
+              <TextInput
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder={isEn ? 'Search by merchant or description...' : '상인명 또는 설명으로 검색...'}
+                className="rounded-2xl border border-border bg-surface px-4 py-3 text-foreground"
+                placeholderTextColor="#999"
+              />
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ columnGap: 10, paddingRight: 8 }}
-          >
-            <Pressable
-              onPress={() => setSelectedCategory(null)}
-              style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-              className={`rounded-full px-5 py-2.5 border ${selectedCategory === null ? 'bg-primary border-primary' : 'border-border bg-surface'}`}
-            >
-              <Text className={`text-sm font-semibold ${selectedCategory === null ? 'text-white' : 'text-foreground'}`}>{isEn ? 'All' : '전체'}</Text>
-            </Pressable>
-            {categories.map((cat) => (
-              <Pressable
-                key={cat.id}
-                onPress={() => setSelectedCategory(cat.id as CategoryId)}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                className={`rounded-full px-5 py-2.5 border ${selectedCategory === cat.id ? 'border-primary bg-primary/10' : 'border-border bg-surface'}`}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ columnGap: 10, paddingRight: 8 }}
               >
-                <Text className={`text-sm font-semibold ${selectedCategory === cat.id ? 'text-primary' : 'text-foreground'}`}>
-                  {getCategoryLabel(cat.id, cat.label)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-
-        <CategoryTotalsSection transactions={filteredTransactions} isEn={isEn} currency={settings.selectedCurrency} />
-
-        {/* 거래 리스트 */}
-        {filteredTransactions.length === 0 ? (
-          <View className="items-center justify-center py-16">
-            <Text className="text-lg text-muted font-semibold mb-2">{isEn ? 'No records yet' : '거래 기록이 없습니다'}</Text>
-            <Text className="text-sm text-muted">{isEn ? 'Add a transaction using the button below' : '아래 버튼으로 거래를 추가해보세요'}</Text>
-          </View>
-        ) : (
-          <View className="pb-24">
-            {filteredTransactions.map((item) => {
-              const category = getCategory(item.category);
-              return (
                 <Pressable
-                  key={item.id}
-                  onPress={() => {
-                    // 카테고리 수정 모달 표시 가능
-                  }}
+                  onPress={() => setSelectedCategory(null)}
                   style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                  className="mb-4 rounded-2xl bg-surface border border-border p-5"
+                  className={`rounded-full px-5 py-2.5 border ${selectedCategory === null ? 'bg-primary border-primary' : 'border-border bg-surface'}`}
                 >
-                  <View className="flex-row items-start justify-between gap-3">
-                    <View className="flex-row items-center gap-3 flex-1">
-                      <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: category.tone + '20' }}>
-                        <Text className="text-xl">{getCategoryEmoji(item.category)}</Text>
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-bold text-foreground leading-5">{item.merchant}</Text>
-                        <View className="flex-row items-center gap-2 mt-2">
-                          <View className="rounded-full px-2 py-1" style={{ backgroundColor: category.tone }}>
-                            <Text className="text-xs font-medium text-white">{getCategoryLabel(category.id, category.label)}</Text>
+                  <Text className={`text-sm font-semibold ${selectedCategory === null ? 'text-white' : 'text-foreground'}`}>{isEn ? 'All' : '전체'}</Text>
+                </Pressable>
+                {categories.map((cat) => (
+                  <Pressable
+                    key={cat.id}
+                    onPress={() => setSelectedCategory(cat.id as CategoryId)}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                    className={`rounded-full px-5 py-2.5 border ${selectedCategory === cat.id ? 'border-primary bg-primary/10' : 'border-border bg-surface'}`}
+                  >
+                    <Text className={`text-sm font-semibold ${selectedCategory === cat.id ? 'text-primary' : 'text-foreground'}`}>
+                      {getCategoryLabel(cat.id, cat.label)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            <CategoryTotalsSection transactions={filteredTransactions} isEn={isEn} currency={settings.selectedCurrency} />
+
+            {/* 거래 리스트 */}
+            {filteredTransactions.length === 0 ? (
+              <View className="items-center justify-center py-16">
+                <Text className="text-lg text-muted font-semibold mb-2">{isEn ? 'No records yet' : '거래 기록이 없습니다'}</Text>
+                <Text className="text-sm text-muted">{isEn ? 'Add a transaction using the button below' : '아래 버튼으로 거래를 추가해보세요'}</Text>
+              </View>
+            ) : (
+              <View className="pb-24">
+                {filteredTransactions.map((item) => {
+                  const category = getCategory(item.category);
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {}}
+                      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                      className="mb-4 rounded-2xl bg-surface border border-border p-5"
+                    >
+                      <View className="flex-row items-start justify-between gap-3">
+                        <View className="flex-row items-center gap-3 flex-1">
+                          <View className="w-12 h-12 rounded-2xl items-center justify-center" style={{ backgroundColor: category.tone + '20' }}>
+                            <Text className="text-xl">{getCategoryEmoji(item.category)}</Text>
                           </View>
-                          <Text className="text-xs text-muted">{item.date}</Text>
+                          <View className="flex-1">
+                            <Text className="text-sm font-bold text-foreground leading-5">{item.merchant}</Text>
+                            <View className="flex-row items-center gap-2 mt-2">
+                              <View className="rounded-full px-2 py-1" style={{ backgroundColor: category.tone }}>
+                                <Text className="text-xs font-medium text-white">{getCategoryLabel(category.id, category.label)}</Text>
+                              </View>
+                              <Text className="text-xs text-muted">{item.date}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-sm font-bold text-foreground leading-5">
+                            {formatCurrencyAmount(convertAmount(item.amount, item.currency, settings.selectedCurrency), settings.selectedCurrency)}
+                          </Text>
+                          <Text className="text-xs text-muted mt-1">{settings.selectedCurrency}</Text>
                         </View>
                       </View>
-                    </View>
-                    <View className="items-end">
-                      <Text className="text-sm font-bold text-foreground leading-5">
-                        {formatCurrencyAmount(convertAmount(item.amount, item.currency, settings.selectedCurrency), settings.selectedCurrency)}
-                      </Text>
-                      <Text className="text-xs text-muted mt-1">{settings.selectedCurrency}</Text>
-                    </View>
-                  </View>
-                  {item.confidence < 0.9 && (
-                    <View className="mt-2 pt-2 border-t border-border">
-                      <Text className="text-xs text-warning">⚠️ {isEn ? 'Classification confidence' : '분류 신뢰도'}: {Math.round(item.confidence * 100)}%</Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+                      {item.confidence < 0.9 && (
+                        <View className="mt-2 pt-2 border-t border-border">
+                          <Text className="text-xs text-warning">⚠️ {isEn ? 'Classification confidence' : '분류 신뢰도'}: {Math.round(item.confidence * 100)}%</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </ScrollView>
 
